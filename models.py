@@ -52,7 +52,7 @@ class AttendanceLog(Base):
 
     day_date = Column(Date, nullable=False)  # ✅ لازم تكون موجودة
 
-    action = Column(Enum("IN", "OUT"), nullable=False)
+    action = Column(Enum("IN", "OUT", name="attendance_action_enum"), nullable=False)
 
     server_timestamp = Column(DateTime, nullable=False, default=datetime.now)  # ✅
 
@@ -82,7 +82,7 @@ class User(Base):
     username: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     pin_hash: Mapped[str] = mapped_column(String(255), nullable=False)
-    role: Mapped[str] = mapped_column(Enum("HR", "MANAGER", "ADMIN"), nullable=False)
+    role: Mapped[str] = mapped_column(Enum("HR", "MANAGER", "ADMIN", name="user_role_enum"), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     profile_photo_path: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[DateTime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
@@ -118,9 +118,9 @@ class SupportTicket(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     employee_id: Mapped[int] = mapped_column(Integer, ForeignKey("employees.id"), nullable=False)
-    category: Mapped[str] = mapped_column(Enum("ISSUE", "SUGGESTION", "INQUIRY"), nullable=False, default="ISSUE")
+    category: Mapped[str] = mapped_column(Enum("ISSUE", "SUGGESTION", "INQUIRY", name="ticket_category_enum"), nullable=False, default="ISSUE")
     message: Mapped[str] = mapped_column(String(2000), nullable=False)
-    status: Mapped[str] = mapped_column(Enum("OPEN", "IN_PROGRESS", "CLOSED"), nullable=False, default="OPEN")
+    status: Mapped[str] = mapped_column(Enum("OPEN", "IN_PROGRESS", "CLOSED", name="ticket_status_enum"), nullable=False, default="OPEN")
     created_at: Mapped[DateTime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
     employee = relationship("Employee")
@@ -137,9 +137,9 @@ class AttendanceAdjustment(Base):
     excuse_late: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     excuse_absence: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
-    decision_late: Mapped[str] = mapped_column(Enum('PENDING','APPROVED','REJECTED'), nullable=False, default='PENDING')
-    decision_early_leave: Mapped[str] = mapped_column(Enum('PENDING','APPROVED','REJECTED'), nullable=False, default='PENDING')
-    decision_absence: Mapped[str] = mapped_column(Enum('PENDING','APPROVED','REJECTED'), nullable=False, default='PENDING')
+    decision_late: Mapped[str] = mapped_column(Enum('PENDING','APPROVED','REJECTED', name="late_decision_enum"), nullable=False, default='PENDING')
+    decision_early_leave: Mapped[str] = mapped_column(Enum('PENDING','APPROVED','REJECTED' name="early_leave_decision_enum"), nullable=False, default='PENDING')
+    decision_absence: Mapped[str] = mapped_column(Enum('PENDING','APPROVED','REJECTED', name="absence_decision_enum"), nullable=False, default='PENDING')
     excuse_early_leave: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     note: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
@@ -172,7 +172,7 @@ class Message(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     employee_id: Mapped[int] = mapped_column(Integer, ForeignKey("employees.id"), nullable=False)
-    direction: Mapped[str] = mapped_column(Enum("EMP_TO_HR", "HR_TO_EMP"), nullable=False)
+    direction: Mapped[str] = mapped_column(Enum("EMP_TO_HR", "HR_TO_EMP", name="message_direction_enum"), nullable=False)
     body: Mapped[str] = mapped_column(String(2000), nullable=False)
     is_read: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[DateTime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
@@ -204,7 +204,7 @@ class SupportTicketReply(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     ticket_id: Mapped[int] = mapped_column(Integer, ForeignKey("support_tickets.id"), nullable=False, index=True)
-    sender: Mapped[str] = mapped_column(Enum("EMP", "HR"), nullable=False)
+    sender: Mapped[str] = mapped_column(Enum("EMP", "HR", name="sender_type_enum"), nullable=False)
     body: Mapped[str] = mapped_column(String(2000), nullable=False)
     created_at: Mapped[DateTime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
@@ -224,7 +224,7 @@ class PayrollBatch(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     # 'YYYY-MM'
     month: Mapped[str] = mapped_column(String(7), nullable=False, unique=True, index=True)
-    status: Mapped[str] = mapped_column(Enum("DRAFT", "APPROVED", "CLOSED"), nullable=False, default="DRAFT")
+    status: Mapped[str] = mapped_column(Enum("DRAFT", "APPROVED", "CLOSED", name="request_status_enum"), nullable=False, default="DRAFT")
 
     created_by_user_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
     approved_by_user_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
