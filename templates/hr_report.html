@@ -1,0 +1,878 @@
+{% extends "_modern_base.html" %}
+{% block title %}التقارير{% endblock %}
+{% block brand_title %}HR{% endblock %}
+{% block brand_subtitle %}نفس العمليات — تصميم أحدث{% endblock %}
+{% block content %}
+  <div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h3 class="mb-0">التقارير</h3>
+      <a class="btn btn-outline-secondary btn-sm" href="/hr/dashboard">رجوع</a>
+    </div>
+
+    <div class="card mb-3">
+      <div class="card-body">
+        <!--
+          لا حذف للوظائف.
+          بس رتبنا الفلاتر (الشهر/اليوم/الموظف) على نفس المستوى وبنفس التنسيق.
+          أضفنا نوع التقرير للتحقق البسيط: شهري/يومي.
+        -->
+        <form class="row g-2 align-items-stretch" id="reportFilters">
+
+          <div class="col-12 col-lg-2">
+            <div class="form-floating">
+              <select class="form-select" id="reportType" name="report_type">
+                <option value="monthly" selected>تقرير شهري</option>
+                <option value="daily">تقرير يومي</option>
+              </select>
+              <label for="reportType">نوع التقرير</label>
+            </div>
+          </div>
+
+          <div class="col-12 col-lg-3">
+            <div class="form-floating">
+              <input type="month" class="form-control" id="monthInput" name="month" value="{{ month or '' }}">
+              <label for="monthInput">الشهر</label>
+            </div>
+          </div>
+
+          <div class="col-12 col-lg-3">
+            <div class="form-floating">
+              <input type="date" class="form-control" id="dateInput" name="date_str" value="{{ date_str or today }}" />
+              <label for="dateInput">اليوم (لليومي / فلتر المراجعات)</label>
+            </div>
+          </div>
+
+          <div class="col-12 col-lg-3 position-relative">
+            <div class="form-floating">
+              <input id="empSearch" class="form-control" placeholder="" autocomplete="off"
+                     value="{% for e in employees %}{% if emp_id and emp_id==e.id %}{{ e.employee_code }} — {{ e.full_name }}{% endif %}{% endfor %}">
+              <label for="empSearch">الموظف (اختياري)</label>
+            </div>
+            <input type="hidden" name="emp_id" id="empIdHidden" value="{{ emp_id or '' }}">
+            <div id="empSuggest" class="emp-suggest d-none"></div>
+            <div class="muted" style="font-size:12px; margin-top:6px;">اتركه فاضي = ملخص كل الموظفين. باليومي لازم تختار موظف.</div>
+          </div>
+
+          <div class="col-6 col-lg-1">
+            <button class="btn btn-primary w-100 h-100">عرض</button>
+          </div>
+
+          <div class="col-6 col-lg-1">
+            <a class="btn btn-outline-dark w-100 h-100" href="/hr/report">إعادة ضبط</a>
+          </div>
+        </form>
+
+        <div class="d-flex flex-wrap gap-2 mt-3">
+          <a class="btn btn-sm btn-outline-danger" href="/hr/review?kind=absence{% if date_str %}&date_str={{ date_str }}{% endif %}">مراجعة الغياب</a>
+          <a class="btn btn-sm btn-outline-warning" href="/hr/review?kind=late{% if date_str %}&date_str={{ date_str }}{% endif %}">مراجعة التأخير</a>
+          <a class="btn btn-sm btn-outline-primary" href="/hr/review?kind=early_leave{% if date_str %}&date_str={{ date_str }}{% endif %}">مراجعة المغادرة</a>
+          <div class="muted" style="font-size:12px;">اختَر يوم من فوق إذا بدك فلترة ليوم محدد. بدون تاريخ = يعرض كل الحالات المعلّقة.</div>
+        </div>
+
+      </div>
+    </div>
+
+
+    {% if mode == 'monthly_all' and month %}
+      <div class="d-flex justify-content-end align-items-center gap-2 mb-3">
+        <form method="post" action="/hr/commit/month" class="d-flex gap-2 align-items-center">
+          <input type="hidden" name="month" value="{{ month }}">
+          <input type="hidden" name="next_url" value="/hr/report?month={{ month }}">
+          <button class="btn btn-sm btn-outline-primary" type="submit">تثبيت/توليد المخالفات للشهر</button>
+        </form>
+
+        <div class="text-muted" style="font-size:13px;">
+          {% if batch and batch.status in ('APPROVED','CLOSED') %}
+            <span class="badge text-bg-success">مصدر الأرقام: Snapshot ({{ batch.status }})</span>
+            <a class="btn btn-sm btn-outline-dark ms-2" href="/hr/payroll-batches/{{ batch.id }}">فتح الدفعة</a>
+          {% else %}
+            <span class="badge text-bg-warning">مصدر الأرقام: حساب حيّ (يتغير مع أي تعديل)</span>
+            <a class="btn btn-sm btn-outline-dark ms-2" href="/hr/payroll-batches">إدارة الدفعات</a>
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
+
+    {% if mode == 'monthly_all' %}
+
+      <div class="row g-3 mb-3">
+        <div class="col-12 col-lg-4">
+          <div class="card">
+            <div class="card-body">
+              <div class="text-muted">إجمالي الرواتب (صافي)</div>
+              <div class="money" style="font-size:28px;font-weight:800;">{{ '%.2f'|format(totals.grand_total) }}</div>
+              <div class="muted">شهر: {{ month }}</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-12 col-lg-8">
+          <div class="card">
+            <div class="card-body">
+              <div class="row g-2">
+                <div class="col-6 col-md-3"><div class="muted">الأساسي</div><div class="money">{{ '%.2f'|format(totals.salary_monthly) }}</div></div>
+                <div class="col-6 col-md-3"><div class="muted">خصم غياب</div><div class="money">{{ '%.2f'|format(totals.absent_deduction) }}</div></div>
+                <div class="col-6 col-md-3"><div class="muted">خصم تأخير</div><div class="money">{{ '%.2f'|format(totals.late_deduction) }}</div></div>
+                <div class="col-6 col-md-3"><div class="muted">خصم مغادرة</div><div class="money">{{ '%.2f'|format(totals.early_leave_deduction or 0) }}</div></div>
+                <div class="col-6 col-md-3"><div class="muted">إضافي</div><div class="money">{{ '%.2f'|format(totals.overtime_add) }}</div></div>
+                <div class="col-6 col-md-3"><div class="muted">بونص</div><div class="money">{{ '%.2f'|format(totals.bonus_add) }}</div></div>
+                <div class="col-6 col-md-3"><div class="muted">تعديل يدوي</div><div class="money">{{ '%.2f'|format(totals.manual_adjustments_total or 0) }}</div></div>
+                <div class="col-6 col-md-3"><div class="muted">إجمالي خصومات</div><div class="money">{{ '%.2f'|format(totals.total_deductions or 0) }}</div></div>
+                <div class="col-6 col-md-3"><div class="muted">إجمالي إضافات</div><div class="money">{{ '%.2f'|format(totals.total_additions or 0) }}</div></div>
+                <div class="col-6 col-md-3"><div class="muted">صافي التعديلات</div><div class="money">{{ '%.2f'|format(totals.adjustments_total) }}</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table align-middle">
+          <thead>
+            <tr>
+              <th>الموظف</th>
+              <th>دوام</th>
+              <th>غياب</th>
+              <th>تأخير (د)</th>
+              <th>مغادرة (د)</th>
+              <th>بونص</th>
+              <th>الراتب الأساسي</th>
+              <th>الصافي</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in rows %}
+              <tr>
+                <td>
+                  <div class="d-flex align-items-center gap-2">
+                    {% if r.emp.profile_photo_path %}
+                      <img class="emp-photo" src="/media/{{ r.emp.profile_photo_path }}" data-bs-toggle="modal" data-bs-target="#imgModal" data-img="/media/{{ r.emp.profile_photo_path }}" alt="p">
+                    {% endif %}
+                    <div>
+                      <div style="font-weight:800;">{{ r.emp.full_name }}</div>
+                      <div class="muted" style="font-size:12px;">{{ r.emp.employee_code }} — ID: {{ r.emp.id }} — IP: {{ r.emp.allowed_ip or "-" }}</div>
+                    </div>
+                  </div>
+                </td>
+                <td>{{ r.present_days }}</td>
+                <td>{{ r.absent_days }}</td>
+                <td>{{ r.late_minutes }}</td>
+                <td>{{ r.early_leave_minutes or 0 }}</td>
+                <td class="money">{{ '%.2f'|format(r.summary.bonus_add or 0) }}</td>
+                <td class="money">{{ '%.2f'|format(r.summary.salary_monthly or 0) }}</td>
+                <td class="money" style="font-weight:800;">{{ '%.2f'|format(r.summary.total or 0) }}</td>
+                <td class="text-end">
+                  <a class="btn btn-sm btn-outline-primary" href="/hr/report?emp_id={{ r.emp.id }}&month={{ month }}">ملف/تقرير</a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+
+    {% elif mode in ('employee_monthly','employee_daily') %}
+      {% set emp = rows[0].emp if rows and rows[0].emp else None %}
+      <div class="card mb-3">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <div style="font-weight:900;font-size:20px;">{{ emp.full_name if emp else 'الموظف' }}</div>
+              <div class="muted">{{ emp.employee_code if emp else '' }}</div>
+            </div>
+            <div class="d-flex gap-2 align-items-center">
+
+              {% if mode=='employee_daily' and date %}
+                <form method="post" action="/hr/commit/day" class="d-inline">
+                  <input type="hidden" name="emp_id" value="{{ emp.id }}">
+                  <input type="hidden" name="date_str" value="{{ date.isoformat() }}">
+                  <input type="hidden" name="next_url" value="/hr/report?emp_id={{ emp.id }}&date_str={{ date.isoformat() }}">
+                  <button class="btn btn-outline-primary btn-sm" type="submit">تثبيت/توليد مخالفات اليوم</button>
+                </form>
+              {% elif mode=='employee_monthly' and month %}
+                <form method="post" action="/hr/commit/month" class="d-inline">
+                  <input type="hidden" name="month" value="{{ month }}">
+                  <input type="hidden" name="emp_id" value="{{ emp.id }}">
+                  <input type="hidden" name="next_url" value="/hr/report?emp_id={{ emp.id }}&month={{ month }}">
+                  <button class="btn btn-outline-primary btn-sm" type="submit">تثبيت/توليد مخالفات الشهر</button>
+                </form>
+              {% endif %}
+
+              <a class="btn btn-outline-secondary btn-sm" href="/hr/employees/{{ emp.id }}">الإعدادات</a>
+              <a class="btn btn-outline-secondary btn-sm" href="/hr/dashboard">رجوع</a>
+            </div>
+          </div>
+          {% if mode=='employee_monthly' and summary %}
+            <hr>
+            <div class="row g-2">
+              <div class="col-6 col-md-3"><div class="muted">الأساسي</div><div class="money">{{ '%.2f'|format(summary.salary_monthly or 0) }}</div></div>
+              <div class="col-6 col-md-3"><div class="muted">خصم غياب</div><div class="money">{{ '%.2f'|format(summary.absent_deduction or 0) }}</div></div>
+              <div class="col-6 col-md-3"><div class="muted">خصم تأخير</div><div class="money">{{ '%.2f'|format(summary.late_deduction or 0) }}</div></div>
+              <div class="col-6 col-md-3"><div class="muted">خصم مغادرة</div><div class="money">{{ '%.2f'|format(summary.early_leave_deduction or 0) }}</div></div>
+              <div class="col-6 col-md-3"><div class="muted">إضافي</div><div class="money">{{ '%.2f'|format(summary.overtime_add or 0) }}</div></div>
+              <div class="col-6 col-md-3"><div class="muted">بونص</div><div class="money">{{ '%.2f'|format(summary.bonus_add or 0) }}</div></div>
+              <div class="col-6 col-md-3"><div class="muted">إجمالي إضافات</div><div class="money">{{ '%.2f'|format(summary.total_additions or 0) }}</div></div>
+              <div class="col-6 col-md-3"><div class="muted">إجمالي خصومات</div><div class="money">{{ '%.2f'|format(summary.total_deductions or 0) }}</div></div>
+              <div class="col-6 col-md-3"><div class="muted">صافي التعديلات</div><div class="money">{{ '%.2f'|format(summary.adjustments_total or 0) }}</div></div>
+              <div class="col-6 col-md-3"><div class="muted">الصافي النهائي</div><div class="money" style="font-weight:900;">{{ '%.2f'|format(summary.total or 0) }}</div></div>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table align-middle">
+          <thead>
+            <tr>
+              <th>التاريخ</th>
+              <th>دخول</th>
+              <th>خروج</th>
+              <th>تأخير (د)</th>
+              <th>مغادرة (د)</th>
+              <th>إضافي (د)</th>
+              <th>مدة الدوام</th>
+              <th>سجل اليوم</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in rows %}
+              <tr {% if (r.late or 0) > 0 or (r.early_leave or 0) > 0 or r.status=='ABSENT' %}class="table-warning"{% endif %}>
+                <td>{{ r.date }}</td>
+                <td>{{ r.first_in.strftime('%H:%M') if r.first_in else '-' }}</td>
+                <td>{{ r.last_out.strftime('%H:%M') if r.last_out else '-' }}</td>
+                <td>{{ r.late or 0 }}</td>
+                <td>{{ r.early_leave or 0 }}</td>
+                <td>{{ r.overtime or 0 }}</td>
+                <td>{{ r.work_duration or '-' }}</td>
+                <td>
+                  <div class="d-flex flex-wrap gap-2">
+                    <button type="button" class="btn btn-sm btn-accent" onclick="openLogModal({{ loop.index }}, 'IN')">IN</button>
+                    <button type="button" class="btn btn-sm btn-ghost" onclick="openLogModal({{ loop.index }}, 'OUT')">OUT</button>
+                    <a class="btn btn-sm btn-outline-secondary" href="/hr/dashboard?date_str={{ r.date }}&emp_id={{ emp.id }}">اليوم</a>
+                  </div>
+
+                  <!-- hidden day logs payload (read by JS) -->
+                  <div id="daydata-{{ loop.index }}" style="display:none;">
+                    {% for s in (r.sessions or []) %}
+                      {% if s.in %}
+                        <span class="_log" data-kind="IN"
+                              data-id="{{ s.in.id }}"
+                              data-ts="{{ s.in.server_timestamp }}"
+                              data-lat="{{ s.in.lat if s.in.lat is not none else '' }}"
+                              data-lng="{{ s.in.lng if s.in.lng is not none else '' }}"
+                              data-video="{{ s.in.video_path or '' }}"></span>
+                      {% endif %}
+                      {% if s.out %}
+                        <span class="_log" data-kind="OUT"
+                              data-id="{{ s.out.id }}"
+                              data-ts="{{ s.out.server_timestamp }}"
+                              data-lat="{{ s.out.lat if s.out.lat is not none else '' }}"
+                              data-lng="{{ s.out.lng if s.out.lng is not none else '' }}"
+                              data-video="{{ s.out.video_path or '' }}"></span>
+                      {% endif %}
+                    {% endfor %}
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- image modal -->
+  <div class="modal fade" id="imgModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h6 class="modal-title">صورة الموظف</h6>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body text-center">
+          <img id="modalImg" src="" style="max-width:100%;border-radius:12px">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- IN/OUT modal (video + map inside the same frame) -->
+  <div class="modal fade" id="logModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-content" style="background:#0b1222;border:1px solid rgba(255,255,255,.14)">
+        <div class="modal-header" style="border-bottom:1px solid rgba(255,255,255,.12)">
+          <div>
+            <div class="fw-bold" id="logModalTitle">سجل اليوم</div>
+            <div class="muted" style="font-size:12px;" id="logModalSub"></div>
+          </div>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-12 col-lg-4">
+              <div class="p-2" style="border:1px solid rgba(255,255,255,.12);border-radius:14px;background:rgba(255,255,255,.03)">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <div class="fw-bold" id="logListTitle">الحركات</div>
+                  <a id="openLogDetails" class="btn btn-sm btn-outline-secondary" target="_blank" href="#">تفاصيل</a>
+                </div>
+                <div id="logList" class="d-grid gap-2"></div>
+              </div>
+            </div>
+            <div class="col-12 col-lg-8">
+              <div class="row g-3">
+                <div class="col-12">
+                  <div class="p-2" style="border:1px solid rgba(255,255,255,.12);border-radius:14px;background:rgba(255,255,255,.03)">
+                    <div class="fw-bold mb-2">الفيديو</div>
+                    <video id="logVideo" controls preload="metadata" playsinline style="width:100%;max-height:320px;border-radius:12px;background:#000"></video>
+                    <div class="muted mt-2" style="font-size:12px;" id="logMeta"></div>
+                  </div>
+                </div>
+                <div class="col-12">
+                  <div class="p-2" style="border:1px solid rgba(255,255,255,.12);border-radius:14px;background:rgba(255,255,255,.03)">
+                    <div class="fw-bold mb-2">الموقع</div>
+                    <div id="logMap" style="height:320px;border-radius:12px;overflow:hidden"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    document.addEventListener('click', function(e){
+      const img = e.target.closest('[data-img]');
+      if(!img) return;
+      document.getElementById('modalImg').src = img.getAttribute('data-img');
+    });
+
+    // ---------------- IN/OUT modal ----------------
+    let _leafletMap = null;
+    let _leafletMarker = null;
+
+    function _normalizeVideoPath(p){
+      if(!p) return '';
+      // Accept: 'videos/..' OR 'media/videos/..' OR '/media/videos/..' OR filename
+      p = String(p).trim();
+      p = p.replace(/^\/+/, '');
+      p = p.replace(/^media\//, '');
+      if(p.startsWith('media/')) p = p.slice(6);
+      // If already has a folder like 'videos/...'
+      if(p.includes('/')) return p;
+      return 'videos/' + p;
+    }
+
+    function _guessMime(p){
+      const s = (p || '').toLowerCase();
+      if(s.endsWith('.mp4')) return 'video/mp4';
+      if(s.endsWith('.webm')) return 'video/webm';
+      return '';
+    }
+
+    function _readDayLogs(dayIndex){
+      const root = document.getElementById('daydata-' + dayIndex);
+      if(!root) return [];
+      const items = Array.from(root.querySelectorAll('._log'));
+      return items.map(el => ({
+        kind: el.dataset.kind,
+        id: el.dataset.id,
+        ts: el.dataset.ts,
+        lat: el.dataset.lat,
+        lng: el.dataset.lng,
+        video: el.dataset.video
+      }));
+    }
+
+    function _ensureMap(){
+      if(_leafletMap) return;
+      // Fix: Leaflet marker icons become relative in nested routes (e.g. /hr/report/...)
+      L.Icon.Default.mergeOptions({
+        iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+        iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+        shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png'
+      });
+      _leafletMap = L.map('logMap');
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(_leafletMap);
+      _leafletMarker = L.marker([0,0]).addTo(_leafletMap);
+    }
+
+    function _renderSelectedLog(log){
+      const videoEl = document.getElementById('logVideo');
+      const metaEl = document.getElementById('logMeta');
+      const openBtn = document.getElementById('openLogDetails');
+
+      openBtn.href = '/hr/log/' + log.id;
+
+      const v = _normalizeVideoPath(log.video);
+      if(v){
+        const mime = _guessMime(v);
+        // Don't force wrong type (mp4 vs webm) — browsers can sniff if type omitted.
+        videoEl.innerHTML = `<source src="/media/${v}" ${mime ? `type="${mime}"` : ''}>`;
+        videoEl.load();
+      } else {
+        videoEl.removeAttribute('src');
+        videoEl.innerHTML = '';
+      }
+
+      const hasLatLng = (log.lat !== '' && log.lng !== '');
+      metaEl.textContent = `${log.kind} — ${log.ts || ''}` + (hasLatLng ? ` — (${log.lat}, ${log.lng})` : '');
+
+      _ensureMap();
+      if(hasLatLng){
+        const lat = parseFloat(log.lat);
+        const lng = parseFloat(log.lng);
+        _leafletMap.setView([lat,lng], 16);
+        _leafletMarker.setLatLng([lat,lng]);
+      } else {
+        _leafletMap.setView([0,0], 1);
+        _leafletMarker.setLatLng([0,0]);
+      }
+      setTimeout(() => { try { _leafletMap.invalidateSize(); } catch(e){} }, 80);
+    }
+
+    window.openLogModal = function(dayIndex, kind){
+      const logs = _readDayLogs(dayIndex).filter(x => x.kind === kind);
+      const title = document.getElementById('logModalTitle');
+      const sub = document.getElementById('logModalSub');
+      const listTitle = document.getElementById('logListTitle');
+      const list = document.getElementById('logList');
+
+      title.textContent = (kind === 'IN' ? 'حركات الدخول (IN)' : 'حركات الخروج (OUT)');
+      sub.textContent = logs.length ? `عدد الحركات: ${logs.length}` : 'لا يوجد حركات';
+      listTitle.textContent = 'اختر حركة لعرض الفيديو + الموقع';
+      list.innerHTML = '';
+
+      if(!logs.length){
+        list.innerHTML = `<div class="muted">—</div>`;
+      } else {
+        logs.forEach((lg, idx) => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'btn btn-sm btn-outline-info text-start';
+          btn.textContent = `${idx+1}. ${lg.ts || ''}`;
+          btn.onclick = () => _renderSelectedLog(lg);
+          list.appendChild(btn);
+        });
+      }
+
+      const modalEl = document.getElementById('logModal');
+      const modal = new bootstrap.Modal(modalEl);
+      modal.show();
+
+      // auto-select the first log so the user sees something immediately
+      if(logs.length) setTimeout(() => _renderSelectedLog(logs[0]), 120);
+    }
+  </script>
+
+{% if mode == "employee_daily" and rows and rows|length > 0 %}
+  {% set r = rows[0] %}
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div>
+          <div class="fw-bold">تقرير اليوم: {{ date }}</div>
+          <div class="text-muted" style="font-size:13px;">التعديلات/القرارات تتم من هنا فقط</div>
+        </div>
+        <a class="btn btn-sm btn-outline-secondary" href="/hr/dashboard?date_str={{ date }}">رجوع لليوم</a>
+      </div>
+
+      <hr>
+
+      <div class="row g-2">
+        <div class="col-12 col-lg-3">
+          <div class="p-2 border rounded">
+            <div class="small text-muted">تأخير (Detected)</div>
+            <div class="fw-bold">{{ r.late_raw_min or 0 }} دقيقة</div>
+            <div class="small text-muted">قرار HR (خصم/إعفاء): {{ r.decision_late or 'PENDING' }}</div>
+            <div class="mt-2">
+              <select class="form-select form-select-sm" name="_note_late" id="noteLate">
+                <option value="">سبب/ملاحظة (اختياري)</option>
+                <option value="مغادرة">مغادرة</option>
+                <option value="عطلة">عطلة</option>
+                <option value="بلش دوام">بلش دوام</option>
+                <option value="ما تخلص دوام">ما تخلص دوام</option>
+                <option value="ظرف طارئ">ظرف طارئ</option>
+              </select>
+            </div>
+            <div class="mt-2 d-flex gap-2">
+              <form method="post" action="/hr/attendance/decision">
+                <input type="hidden" name="emp_id" value="{{ r.emp_id }}">
+                <input type="hidden" name="date_str" value="{{ date }}">
+                <input type="hidden" name="kind" value="late">
+                <input type="hidden" name="decision" value="ok">
+                <input type="hidden" name="next_url" value="{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}">
+                <input type="hidden" name="note" value="" class="_note_bind" data-src="#noteLate">
+                <button class="btn btn-sm btn-danger">تطبيق الخصم</button>
+              </form>
+              <form method="post" action="/hr/attendance/decision">
+                <input type="hidden" name="emp_id" value="{{ r.emp_id }}">
+                <input type="hidden" name="date_str" value="{{ date }}">
+                <input type="hidden" name="kind" value="late">
+                <input type="hidden" name="decision" value="reject">
+                <input type="hidden" name="next_url" value="{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}">
+                <input type="hidden" name="note" value="" class="_note_bind" data-src="#noteLate">
+                <button class="btn btn-sm btn-outline-secondary">إعفاء</button>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-12 col-lg-3">
+          <div class="p-2 border rounded">
+            <div class="small text-muted">مغادرة مبكرة (Detected)</div>
+            <div class="fw-bold">{{ r.early_leave_raw_min or 0 }} دقيقة</div>
+            <div class="small text-muted">قرار HR (خصم/إعفاء): {{ r.decision_early_leave or 'PENDING' }}</div>
+            <div class="mt-2">
+              <select class="form-select form-select-sm" name="_note_early" id="noteEarly">
+                <option value="">سبب/ملاحظة (اختياري)</option>
+                <option value="مغادرة">مغادرة</option>
+                <option value="عطلة">عطلة</option>
+                <option value="بلش دوام">بلش دوام</option>
+                <option value="ما تخلص دوام">ما تخلص دوام</option>
+                <option value="ظرف طارئ">ظرف طارئ</option>
+              </select>
+            </div>
+            <div class="mt-2 d-flex gap-2">
+              <form method="post" action="/hr/attendance/decision">
+                <input type="hidden" name="emp_id" value="{{ r.emp_id }}">
+                <input type="hidden" name="date_str" value="{{ date }}">
+                <input type="hidden" name="kind" value="early">
+                <input type="hidden" name="decision" value="ok">
+                <input type="hidden" name="next_url" value="{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}">
+                <input type="hidden" name="note" value="" class="_note_bind" data-src="#noteEarly">
+                <button class="btn btn-sm btn-danger">تطبيق الخصم</button>
+              </form>
+              <form method="post" action="/hr/attendance/decision">
+                <input type="hidden" name="emp_id" value="{{ r.emp_id }}">
+                <input type="hidden" name="date_str" value="{{ date }}">
+                <input type="hidden" name="kind" value="early">
+                <input type="hidden" name="decision" value="reject">
+                <input type="hidden" name="next_url" value="{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}">
+                <input type="hidden" name="note" value="" class="_note_bind" data-src="#noteEarly">
+                <button class="btn btn-sm btn-outline-secondary">إعفاء</button>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-12 col-lg-3">
+          <div class="p-2 border rounded">
+            <div class="small text-muted">غياب (Detected)</div>
+            <div class="fw-bold">{{ 'نعم' if r.absence_raw_status == 'ABSENT' else 'لا' }}</div>
+            <div class="small text-muted">قرار HR (خصم/إعفاء): {{ r.decision_absence or 'PENDING' }}</div>
+            <div class="mt-2">
+              <select class="form-select form-select-sm" name="_note_absent" id="noteAbsent">
+                <option value="">سبب/ملاحظة (اختياري)</option>
+                <option value="عطلة">عطلة</option>
+                <option value="إجازة مرضية">إجازة مرضية</option>
+                <option value="ظرف طارئ">ظرف طارئ</option>
+                <option value="تواصل مع HR">تواصل مع HR</option>
+              </select>
+            </div>
+            <div class="mt-2 d-flex gap-2">
+              <form method="post" action="/hr/attendance/decision">
+                <input type="hidden" name="emp_id" value="{{ r.emp_id }}">
+                <input type="hidden" name="date_str" value="{{ date }}">
+                <input type="hidden" name="kind" value="absent">
+                <input type="hidden" name="decision" value="ok">
+                <input type="hidden" name="next_url" value="{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}">
+                <input type="hidden" name="note" value="" class="_note_bind" data-src="#noteAbsent">
+                <button class="btn btn-sm btn-danger">تطبيق الخصم</button>
+              </form>
+              <form method="post" action="/hr/attendance/decision">
+                <input type="hidden" name="emp_id" value="{{ r.emp_id }}">
+                <input type="hidden" name="date_str" value="{{ date }}">
+                <input type="hidden" name="kind" value="absent">
+                <input type="hidden" name="decision" value="reject">
+                <input type="hidden" name="next_url" value="{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}">
+                <input type="hidden" name="note" value="" class="_note_bind" data-src="#noteAbsent">
+                <button class="btn btn-sm btn-outline-secondary">إعفاء</button>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-12 col-lg-3">
+          <div class="p-2 border rounded">
+            <div class="small text-muted">إضافي (Detected)</div>
+            <div class="fw-bold">{{ r.overtime_raw_min or 0 }} دقيقة</div>
+            <div class="small text-muted">ملاحظة: قرار الإضافي يتم من صفحة المراجعات حالياً</div>
+          </div>
+        </div>
+      </div>
+
+      <hr>
+
+      <div class="fw-bold mb-2">الحركات داخل اليوم</div>
+      <div class="table-responsive">
+        <table class="table table-sm">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>دخول</th>
+              <th>خروج</th>
+              <th>مدة</th>
+              <th>الموقع</th>
+              <th>فيديو</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for s in (r.sessions or []) %}
+              <tr>
+                <td>{{ loop.index }}</td>
+                <td>{{ s.in.server_timestamp if s.in else '-' }}</td>
+                <td>{{ s.out.server_timestamp if s.out else '-' }}</td>
+                <td>
+                  {% if s.duration_min is not none %}
+                    <span class="{% if s.duration_min < 2 %}text-danger fw-bold{% else %}text-muted{% endif %}">
+                      {{ s.duration_min }} د
+                      {% if s.duration_min < 2 %}<span class="ms-1">(مشبوه)</span>{% endif %}
+                    </span>
+                  {% else %}
+                    <span class="text-muted">-</span>
+                  {% endif %}
+                </td>
+                <td class="text-muted">
+                  {% if s.in and s.in.map_url %}
+                    <a target="_blank" href="{{ s.in.map_url }}">خريطة الدخول</a>
+                  {% endif %}
+                  {% if s.out and s.out.map_url %}
+                    <span class="mx-1">|</span>
+                    <a target="_blank" href="{{ s.out.map_url }}">خريطة الخروج</a>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if s.in and s.in.video_path %}
+                    <a target="_blank" href="/media/{{ s.in.video_path | replace('media/','') }}">IN</a>
+                  {% endif %}
+                  {% if s.out and s.out.video_path %}
+                    <span class="mx-1">|</span>
+                    <a target="_blank" href="/media/{{ s.out.video_path | replace('media/','') }}">OUT</a>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+            {% if (r.sessions or [])|length == 0 %}
+              <tr><td colspan="6" class="text-muted">لا يوجد حركات</td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+
+      <script>
+        // bind dropdown note -> hidden input before submit (no backend logic change)
+        document.querySelectorAll('input._note_bind').forEach(inp => {
+          const sel = document.querySelector(inp.getAttribute('data-src'));
+          if(!sel) return;
+          const form = inp.closest('form');
+          if(!form) return;
+          form.addEventListener('submit', () => { inp.value = (sel.value || '').trim(); });
+        });
+      </script>
+    </div>
+  </div>
+{% endif %}
+
+<script>
+  // Employee search (typeahead) -> hidden emp_id
+  (function(){
+    const map = {
+      {% for e in employees %}
+        "{{ (e.employee_code ~ ' — ' ~ e.full_name) | replace('\\','/') }}": {{ e.id }},
+      {% endfor %}
+      "كل الموظفين": ""
+    };
+    const input = document.getElementById('empSearch');
+    const hidden = document.getElementById('empIdHidden');
+    if(!input || !hidden) return;
+
+    function sync(){
+      const v = (input.value || '').trim();
+      if(!v || v === 'كل الموظفين'){
+        hidden.value = '';
+        return;
+      }
+      if(map[v] !== undefined){
+        hidden.value = map[v];
+        return;
+      }
+      // If user typed only employee code, try match by prefix
+      const code = v.split('—')[0].trim();
+      for(const k in map){
+        if(typeof map[k] === 'number' && k.startsWith(code + ' —')){
+          hidden.value = map[k];
+          return;
+        }
+      }
+    }
+
+    input.addEventListener('change', sync);
+    input.addEventListener('blur', sync);
+  })();
+</script>
+{% endblock %}
+
+
+
+{% block extra_js %}
+<script>
+  const EMPLOYEES = [
+    {% for e in employees %}
+      {id: {{ e.id }}, code: "{{ e.employee_code|e }}", name: "{{ e.full_name|e }}"}{% if not loop.last %},{% endif %}
+    {% endfor %}
+  ];
+
+  const empInput = document.getElementById('empSearch');
+  const empHidden = document.getElementById('empIdHidden');
+  const suggestBox = document.getElementById('empSuggest');
+  const typeSel = document.getElementById('reportType');
+  const monthInput = document.getElementById('monthInput');
+  const dateInput = document.getElementById('dateInput');
+  const form = document.getElementById('reportFilters');
+
+  function showSuggest(items){
+    if (!items.length){
+      suggestBox.classList.add('d-none');
+      suggestBox.innerHTML = '';
+      return;
+    }
+    suggestBox.classList.remove('d-none');
+    suggestBox.innerHTML = items.map(it => (
+      `<div class="item" data-id="${it.id}">
+         <div><b>${it.code}</b> — ${it.name}</div>
+         <div class="meta">ID: ${it.id}</div>
+       </div>`
+    )).join('');
+  }
+
+  function filterEmployees(q){
+    const s = (q||'').trim().toLowerCase();
+    if (!s) return [];
+    return EMPLOYEES
+      .filter(e => (e.code||'').toLowerCase().includes(s) || (e.name||'').toLowerCase().includes(s))
+      .slice(0, 12);
+  }
+
+  empInput?.addEventListener('input', () => {
+    empHidden.value = '';
+    showSuggest(filterEmployees(empInput.value));
+  });
+
+  empInput?.addEventListener('focus', () => {
+    showSuggest(filterEmployees(empInput.value));
+  });
+
+  document.addEventListener('click', (ev) => {
+    const t = ev.target;
+    const item = t?.closest?.('.emp-suggest .item');
+    if (item){
+      const id = item.getAttribute('data-id');
+      const emp = EMPLOYEES.find(e => String(e.id) === String(id));
+      if (emp){
+        empInput.value = `${emp.code} — ${emp.name}`;
+        empHidden.value = emp.id;
+      }
+      suggestBox.classList.add('d-none');
+      return;
+    }
+    if (!t?.closest?.('#empSearch') && !t?.closest?.('#empSuggest')){
+      suggestBox.classList.add('d-none');
+    }
+  });
+
+  function syncType(){
+    const v = typeSel.value;
+    if (v === 'daily'){
+      monthInput.disabled = true;
+      dateInput.disabled = false;
+    } else {
+      monthInput.disabled = false;
+      dateInput.disabled = false;
+    }
+  }
+  typeSel?.addEventListener('change', syncType);
+  syncType();
+
+  form?.addEventListener('submit', (ev) => {
+    const v = typeSel.value;
+    if (v === 'daily'){
+      if (!dateInput.value){
+        ev.preventDefault();
+        alert('اختَر يوم للتقرير اليومي.');
+        return;
+      }
+      if (!empHidden.value){
+        ev.preventDefault();
+        alert('بالتقرير اليومي لازم تختار موظف.');
+        return;
+      }
+    } else {
+      if (!monthInput.value){
+        ev.preventDefault();
+        alert('اختَر شهر للتقرير الشهري.');
+        return;
+      }
+    }
+  });
+
+  (function autoDetect(){
+    const hasEmp = !!(empHidden.value);
+    const hasDate = !!(dateInput.value);
+    const hasMonth = !!(monthInput.value);
+    if (hasEmp && hasDate && !hasMonth){
+      typeSel.value = 'daily';
+    }
+    syncType();
+  })();
+</script>
+{% endblock %}
+{% block extra_head %}
+<style>
+/* fixes: remove white/gray zebra + dark modal */
+.table{color:#dbe7ff;}
+.table thead th{background:#0b1a33 !important;color:#dbe7ff;}
+.table tbody tr{background:#0e1b31 !important;}
+.table tbody td{background:transparent !important;}
+.table-hover tbody tr:hover{filter:brightness(1.08);}
+.table-striped>tbody>tr:nth-of-type(odd){background:#0e1b31 !important;}
+.table-striped>tbody>tr:nth-of-type(even){background:#0e1b31 !important;}
+
+#logModal .modal-content{background:#0b1220;color:#dbe7ff;border:1px solid rgba(255,255,255,.08);}
+#logModal .modal-header{border-bottom:1px solid rgba(255,255,255,.08);}
+#logModal .modal-body{background:#0b1220;}
+#logList .btn{width:100%;text-align:right;}
+#logList .btn-outline-info{color:#9ad7ff;border-color:rgba(154,215,255,.35);}
+#logList .btn-outline-info:hover{background:rgba(154,215,255,.12);}
+
+/* make video bigger */
+#logVideo{width:100%;min-height:320px;background:#000;border-radius:14px;}
+#logMap{height:320px;border-radius:14px;overflow:hidden;}
+.emp-photo{width:28px;height:28px;border-radius:50%;object-fit:cover;border:1px solid rgba(255,255,255,.25);}
+    .muted{opacity:.85}
+    .money{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;}
+
+    /* رفع الكونتراست (الرمادي كان باهت على الخلفية الداكنة) */
+    .table{color:#f1f3f5}
+    .table thead th{color:#fff}
+    .table-striped>tbody>tr:nth-of-type(odd)>*{background-color:rgba(255,255,255,.04)}
+    .table-warning>*>*{background-color:rgba(255,193,7,.12)!important}
+    .card{border:1px solid rgba(255,255,255,.10)}
+
+    .emp-suggest{position:absolute;top:100%;left:0;right:0;z-index:50;background:#0f172a;border:1px solid rgba(255,255,255,.18);border-radius:12px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+    .emp-suggest .item{padding:10px 12px;cursor:pointer;color:#fff}
+    .emp-suggest .item:hover{background:rgba(255,255,255,.08)}
+    .emp-suggest .item small{opacity:.85}
+
+    .mini-details summary{cursor:pointer;user-select:none;color:#fff}
+    .mini-details{border:1px dashed rgba(255,255,255,.18);border-radius:10px;padding:6px 8px;background:rgba(255,255,255,.03)}
+
+    /* بعض المتصفحات بتخلي options أبيض على أبيض */
+    select, option{background:#0f172a !important;color:#fff !important;}
+  
+</style>
+{% endblock %}

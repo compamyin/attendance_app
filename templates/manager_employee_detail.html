@@ -1,0 +1,98 @@
+{% extends "_manager_base.html" %}
+{% block title %}تفاصيل الموظف{% endblock %}
+{% block extra_head %}
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-3">
+    <div>
+      <h3 class="mb-1">{{ emp.full_name }}</h3>
+      <div class="muted">الكود: {{ emp.employee_code }} • شهر: {{ month_label }}</div>
+    </div>
+    <div class="d-flex gap-2">
+      <a class="btn btn-sm btn-outline-light" href="/manager/employees?month={{ month }}">رجوع</a>
+      <a class="btn btn-sm btn-primary" href="/hr/report?emp_id={{ emp.id }}&month={{ month }}">فتح تقرير HR (قراءة)</a>
+    </div>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-12">
+      <div class="row g-3">
+        {% for c in cards %}
+        <div class="col-6 col-lg-3">
+          <div class="card rounded-4 shadow-sm">
+            <div class="card-body p-4">
+              <div class="muted small">{{ c.label }}</div>
+              <div class="display-6 fw-bold mt-2">{{ c.value }}</div>
+              {% if c.sub %}<div class="muted small mt-1">{{ c.sub }}</div>{% endif %}
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="col-12">
+      <div class="card rounded-4 shadow-sm">
+        <div class="card-body p-4">
+          <h5 class="mb-2">اتجاه الحضور خلال الشهر</h5>
+          <div class="muted small mb-3">1 = حاضر/غير مكتمل، 0 = غياب/غير مسجل (حسب اليوم المُفعل)</div>
+          <canvas id="spark" height="90"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12">
+      <div class="card rounded-4 shadow-sm">
+        <div class="card-body p-4">
+          <h5 class="mb-2">أيام الشهر (ملخص)</h5>
+          <div class="table-responsive mt-3">
+            <table class="table table-dark table-hover align-middle">
+              <thead>
+                <tr>
+                  <th>التاريخ</th>
+                  <th>الحالة</th>
+                  <th>دخول</th>
+                  <th>خروج</th>
+                  <th>تأخير</th>
+                  <th>مغادرة مبكرة</th>
+                  <th>OT</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for d in days %}
+                <tr>
+                  <td>{{ d.date }}</td>
+                  <td><span class="badge text-bg-{{ d.status_color }} rounded-pill">{{ d.status }}</span></td>
+                  <td>{{ d.first_in or '-' }}</td>
+                  <td>{{ d.last_out or '-' }}</td>
+                  <td>{{ d.late }}</td>
+                  <td>{{ d.early }}</td>
+                  <td>{{ d.ot }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+  const labels = {{ spark.labels | tojson }};
+  const values = {{ spark.values | tojson }};
+  const ctx = document.getElementById('spark');
+  if(ctx){
+    new Chart(ctx, {
+      type: 'line',
+      data: { labels, datasets: [{ label:'حضور', data: values, tension: 0.25 }]},
+      options: { responsive:true, plugins:{ legend:{ display:false } }, scales:{ y:{ beginAtZero:true, max:1 } } }
+    })
+  }
+</script>
+{% endblock %}

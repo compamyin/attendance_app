@@ -1,0 +1,101 @@
+{% extends "_manager_base.html" %}
+{% block title %}Employee Reports{% endblock %}
+{% block extra_head %}
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-3">
+    <div>
+      <h3 class="mb-1">Employee Reports</h3>
+      <div class="muted">تحليلات أعمق — بدون تعديل</div>
+    </div>
+    <form class="d-flex gap-2 flex-wrap" method="get" action="/manager/reports">
+      <input class="form-control form-control-sm" style="width:160px" type="month" name="month" value="{{ month }}">
+      <button class="btn btn-sm btn-primary">تطبيق</button>
+      <a class="btn btn-sm btn-outline-light" href="/manager/reports?month={{ month }}">Reset</a>
+    </form>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-12 col-lg-8">
+      <div class="card rounded-4 shadow-sm">
+        <div class="card-body p-4">
+          <h5 class="mb-2">اتجاه الحضور خلال الشهر</h5>
+          <div class="muted small mb-3">عدد الحضور لكل يوم (حتى اليوم)</div>
+          <canvas id="attChart" height="120"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-lg-4">
+      <div class="card rounded-4 shadow-sm h-100">
+        <div class="card-body p-4">
+          <h5 class="mb-2">ملخص الشهر</h5>
+          <div class="d-grid gap-2 mt-3">
+            <div class="pill d-flex justify-content-between"><span class="muted">Compliance</span><b>{{ compliance }}%</b></div>
+            <div class="pill d-flex justify-content-between"><span class="muted">Late (min)</span><b>{{ late_minutes }}</b></div>
+            <div class="pill d-flex justify-content-between"><span class="muted">OT (hours)</span><b>{{ ot_hours }}</b></div>
+            <div class="pill d-flex justify-content-between"><span class="muted">Absence %</span><b>{{ absence_pct }}%</b></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12">
+      <div class="card rounded-4 shadow-sm">
+        <div class="card-body p-4">
+          <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <h5 class="mb-0">قائمة الموظفين (ملخص)</h5>
+            <div class="muted small">اضغط على الموظف لعرض التفاصيل</div>
+          </div>
+
+          <div class="table-responsive mt-3">
+            <table class="table table-dark table-hover align-middle">
+              <thead>
+                <tr>
+                  <th>الكود</th>
+                  <th>الاسم</th>
+                  <th>حضور</th>
+                  <th>غياب</th>
+                  <th>تأخير (دقيقة)</th>
+                  <th>OT (دقيقة)</th>
+                  <th>التزام %</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for r in rows %}
+                  <tr style="cursor:pointer" onclick="window.location.href='/manager/employees/{{ r.emp.id }}?month={{ month }}'">
+                    <td>{{ r.emp.employee_code }}</td>
+                    <td class="text-truncate" style="max-width:260px">{{ r.emp.full_name }}</td>
+                    <td>{{ r.present_days }}</td>
+                    <td>{{ r.absent_days }}</td>
+                    <td>{{ r.late_minutes }}</td>
+                    <td>{{ r.overtime_minutes }}</td>
+                    <td>{{ r.compliance }}%</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+  const labels = {{ chart["labels"] | tojson }};
+  const values = {{ chart["values"] | tojson }};
+  const ctx = document.getElementById('attChart');
+  if(ctx){
+    new Chart(ctx, {
+      type: 'line',
+      data: { labels, datasets: [{ label: 'الحضور', data: values, tension: 0.25 }]},
+      options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+    })
+  }
+</script>
+{% endblock %}

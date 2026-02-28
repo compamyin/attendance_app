@@ -1,0 +1,108 @@
+{% extends "_manager_base.html" %}
+{% block title %}Payroll Overview{% endblock %}
+{% block extra_head %}
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-3">
+    <div>
+      <h3 class="mb-1">Payroll Overview</h3>
+      <div class="muted">عرض دفعات الرواتب — بدون أي تعديل</div>
+    </div>
+    <form class="d-flex gap-2 flex-wrap" method="get" action="/manager/payroll">
+      <input class="form-control form-control-sm" style="width:160px" type="month" name="month" value="{{ month }}">
+      <button class="btn btn-sm btn-primary">تطبيق</button>
+      <a class="btn btn-sm btn-outline-light" href="/manager/payroll?month={{ month }}">Reset</a>
+    </form>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-12">
+      <div class="row g-3">
+        {% for c in cards %}
+        <div class="col-6 col-lg-3">
+          <div class="card rounded-4 shadow-sm">
+            <div class="card-body p-4">
+              <div class="d-flex align-items-center justify-content-between">
+                <div class="muted small">{{ c.label }}</div>
+                <i class="bi {{ c.icon }} muted"></i>
+              </div>
+              <div class="display-6 fw-bold mt-2">{{ c.value }}</div>
+              {% if c.sub %}
+                <div class="muted small mt-1">{{ c.sub }}</div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="col-12 col-lg-5">
+      <div class="card rounded-4 shadow-sm h-100">
+        <div class="card-body p-4">
+          <h5 class="mb-2">توزيع إجمالي الرواتب</h5>
+          <div class="muted small mb-3">حسب الموظفين (لا يوجد فروع/أقسام في قاعدة البيانات الحالية)</div>
+          <canvas id="pie" height="160"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-lg-7">
+      <div class="card rounded-4 shadow-sm">
+        <div class="card-body p-4">
+          <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <h5 class="mb-0">جدول الرواتب</h5>
+            <div class="muted small">عرض فقط • يمكن تصدير Excel/PDF لاحقاً</div>
+          </div>
+
+          <div class="table-responsive mt-3">
+            <table class="table table-dark table-hover align-middle">
+              <thead>
+                <tr>
+                  <th>الكود</th>
+                  <th>الاسم</th>
+                  <th>أساسي</th>
+                  <th>خصومات</th>
+                  <th>OT</th>
+                  <th>صافي</th>
+                  <th>الحالة</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for r in rows %}
+                <tr>
+                  <td>{{ r.emp.employee_code }}</td>
+                  <td class="text-truncate" style="max-width:260px">{{ r.emp.full_name }}</td>
+                  <td>{{ r.salary_monthly }}</td>
+                  <td>{{ r.total_deductions }}</td>
+                  <td>{{ r.overtime_add }}</td>
+                  <td class="fw-semibold">{{ r.total }}</td>
+                  <td><span class="badge text-bg-{{ r.status_color }} rounded-pill">{{ r.status }}</span></td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+  const labels = {{ pie["labels"] | tojson }};
+  const values = {{ pie["values"] | tojson }};
+  const ctx = document.getElementById('pie');
+  if(ctx){
+    new Chart(ctx, {
+      type: 'doughnut',
+      data: { labels, datasets: [{ data: values }] },
+      options: { responsive:true, plugins:{ legend:{ position:'bottom' } } }
+    })
+  }
+</script>
+{% endblock %}

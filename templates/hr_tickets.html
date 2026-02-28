@@ -1,0 +1,57 @@
+{% extends "_modern_base.html" %}
+{% block title %}تذاكر الموظفين{% endblock %}
+{% block brand_title %}HR{% endblock %}
+{% block brand_subtitle %}نفس العمليات — تصميم أحدث{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <div class="card shadow-sm">
+    <div class="card-body p-4">
+      <div class="table-responsive">
+        <table class="table table-dark table-striped align-middle">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>الموظف</th>
+              <th>النوع</th>
+              <th>الرسالة</th>
+              <th>الحالة</th>
+              <th>فتح</th>
+              <th>تعديل</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for t in tickets %}
+              <tr>
+                <td class="mono">{{t.id}}</td>
+                <td>{{t.employee.full_name}}<div class="text-white-50 small">{{t.employee.employee_code}}</div></td>
+                <td class="mono">{{t.category}}</td>
+                <td style="max-width:520px;white-space:pre-wrap">{{t.message}}</td>
+                <td class="mono">{{t.status}}</td>
+                <td>
+                  <a class="btn btn-sm btn-outline-light" href="/hr/tickets/{{t.id}}">فتح</a>
+                </td>
+                <td>
+                  <form method="post" action="/hr/tickets/{{t.id}}/status" class="d-flex gap-2">
+                    <select name="status" class="form-select form-select-sm">
+                      <option value="OPEN" {% if t.status=='OPEN' %}selected{% endif %}>OPEN</option>
+                      <option value="IN_PROGRESS" {% if t.status=='IN_PROGRESS' %}selected{% endif %}>IN_PROGRESS</option>
+                      <option value="CLOSED" {% if t.status=='CLOSED' %}selected{% endif %}>CLOSED</option>
+                    </select>
+                    <button class="btn btn-sm btn-primary">حفظ</button>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="text-white-50 small mt-2">هاي الصفحة بتخليك تمسك المشاكل/الاقتراحات بسرعة بدل ما تغرق واتساب.</div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_head %}
+<style>
+body{background:#0b1220}.card{border:0;border-radius:16px}.mono{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace;}
+</style>
+{% endblock %}

@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>كشف الدوام</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+  <style>
+    body { background: #0b1220; }
+    .card { border: 0; border-radius: 16px; }
+    .pill { border-radius: 999px; padding: .2rem .6rem; font-size:.8rem; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+  </style>
+</head>
+<body>
+  <nav class="navbar navbar-dark" style="background:#0f172a;">
+    <div class="container">
+      <span class="navbar-brand mb-0 h1">كشف الدوام</span>
+      <a class="btn btn-sm btn-outline-light" href="/dashboard">رجوع</a>
+    </div>
+  </nav>
+
+  <div class="container py-4">
+    <div class="card shadow-sm">
+      <div class="card-body p-4">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+          <div>
+            <h5 class="mb-0 text-white">{{employee.full_name}}</h5>
+            <div class="text-white-50 small">{{employee.employee_code}} — الشهر: {{month_label}}</div>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-dark table-striped align-middle mb-0">
+            <thead>
+              <tr>
+                <th>التاريخ</th>
+                <th>بدء الدوام</th>
+                <th>انتهاء الدوام</th>
+                <th>الحالة</th>
+                <th>تأخير</th>
+                <th>إضافي</th>
+                <th>الدقة</th>
+              </tr>
+            </thead>
+            <tbody>
+            {% for r in rows %}
+              <tr>
+                <td class="mono">{{ r.date }}</td>
+                <td class="mono">{{ r.in_time }}</td>
+                <td class="mono">{{ r.out_time }}</td>
+                <td>
+                  {% if r.status == 'PRESENT' %}
+                    <span class="pill bg-success">حاضر</span>
+                  {% elif r.status == 'INCOMPLETE' %}
+                    <span class="pill bg-warning text-dark">ناقص (بدون خروج)</span>
+                  {% elif r.status == 'HOLIDAY' %}
+                    <span class="pill bg-secondary">عطلة</span>
+                  {% else %}
+                    <span class="pill bg-danger">غائب</span>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if r.late_minutes and r.late_minutes > 0 %}
+                    <span class="mono">{{ r.late_minutes }} دقيقة</span>
+                  {% else %}-{% endif %}
+                </td>
+                <td>
+                  {% if r.overtime_minutes and r.overtime_minutes > 0 %}
+                    <span class="mono">{{ r.overtime_minutes }} دقيقة</span>
+                  {% else %}-{% endif %}
+                </td>
+                <td>
+                  {% if r.accuracy_m %}
+                    <span class="mono">{{ (r.accuracy_m | round(0)) }} م</span>
+                  {% else %}-{% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="text-white-50 small mt-3">
+          ملاحظة: الموقع لا يظهر لك. يظهر للـ HR فقط للتحقق عند الحاجة.
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

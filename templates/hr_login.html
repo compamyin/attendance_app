@@ -1,0 +1,36 @@
+{% extends "_modern_base.html" %}
+{% block title %}تسجيل HR{% endblock %}
+{% block brand_title %}HR{% endblock %}
+{% block brand_subtitle %}نفس العمليات — تصميم أحدث{% endblock %}
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+      <div class="col-12 col-lg-5">
+        <div class="card shadow-sm">
+          <div class="card-body p-4">
+            <h4 class="mb-3">دخول HR / Manager / Admin</h4>
+            {% if error %}<div class="alert alert-danger">{{error}}</div>{% endif %}
+            <form method="post" action="/hr/login">
+              <div class="mb-3">
+                <label class="form-label">اسم المستخدم</label>
+                <input class="form-control" name="username" required>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">كلمة السر</label>
+                <input class="form-control" type="password" name="password" required>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">PIN</label>
+                <input class="form-control" type="password" name="pin" required>
+              </div>
+              <button class="btn btn-primary w-100">دخول</button>
+            </form>
+            <div class="text-secondary small mt-3">
+              إذا أنت Admin بدك صفحة /admin/login.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}

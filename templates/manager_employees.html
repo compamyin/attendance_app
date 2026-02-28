@@ -1,0 +1,51 @@
+{% extends "_manager_base.html" %}
+{% block title %}Employees{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-3">
+    <div>
+      <h3 class="mb-1">Employees</h3>
+      <div class="muted">استعراض الموظفين — عرض فقط</div>
+    </div>
+    <form class="d-flex gap-2 flex-wrap" method="get" action="/manager/employees">
+      <input class="form-control form-control-sm" style="width:240px" name="q" value="{{ q }}" placeholder="بحث بالاسم أو الكود...">
+      <input class="form-control form-control-sm" style="width:160px" type="month" name="month" value="{{ month }}">
+      <button class="btn btn-sm btn-primary">بحث</button>
+      <a class="btn btn-sm btn-outline-light" href="/manager/employees?month={{ month }}">Reset</a>
+    </form>
+  </div>
+
+  <div class="card rounded-4 shadow-sm">
+    <div class="card-body p-4">
+      <div class="table-responsive">
+        <table class="table table-dark table-hover align-middle">
+          <thead>
+            <tr>
+              <th>الكود</th>
+              <th>الاسم</th>
+              <th>راتب شهري</th>
+              <th>التزام الشهر %</th>
+              <th>غياب</th>
+              <th>تأخير (دقيقة)</th>
+              <th>OT (دقيقة)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in rows %}
+            <tr style="cursor:pointer" onclick="window.location.href='/manager/employees/{{ r.emp.id }}?month={{ month }}'">
+              <td>{{ r.emp.employee_code }}</td>
+              <td class="text-truncate" style="max-width:320px">{{ r.emp.full_name }}</td>
+              <td>{{ r.salary_monthly }}</td>
+              <td>{{ r.compliance }}%</td>
+              <td>{{ r.absent_days }}</td>
+              <td>{{ r.late_minutes }}</td>
+              <td>{{ r.overtime_minutes }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

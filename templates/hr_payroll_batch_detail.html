@@ -1,0 +1,191 @@
+{% extends "_modern_base.html" %}
+{% block title %}دفعة رواتب{% endblock %}
+{% block brand_title %}HR{% endblock %}
+{% block brand_subtitle %}دفعة شهرية — تثبيت واعتماد{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <div class="d-flex align-items-center gap-2">
+        <h4 class="mb-0">دفعة رواتب: {{ month }}</h4>
+        {% if batch.status == 'DRAFT' %}
+          <span class="badge text-bg-secondary">مسودة</span>
+        {% elif batch.status == 'APPROVED' %}
+          <span class="badge text-bg-primary">معتمدة</span>
+        {% else %}
+          <span class="badge text-bg-success">مغلقة</span>
+        {% endif %}
+      </div>
+      <div class="text-muted">
+        {% if batch.status == 'DRAFT' %}
+          الحسابات “حية” وتتغير مع أي تعديل. اعتمد لتثبيت Snapshot.
+        {% elif batch.status == 'APPROVED' %}
+          الأرقام مثبتة Snapshot. إذا بدك تقفل الشهر نهائياً اضغط إغلاق.
+        {% else %}
+          الشهر مغلق. تم تثبيت السجل للتقارير السنوية.
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="d-flex gap-2">
+      <a class="btn btn-outline-secondary" href="/hr/payroll-batches">رجوع</a>
+      <a class="btn btn-outline-secondary" href="/hr/report?month={{ month }}">التقارير</a>
+      <a class="btn btn-outline-danger" href="/hr/logout">خروج</a>
+    </div>
+  </div>
+
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-body">
+      <div class="row g-2 align-items-center">
+        <div class="col-md-6">
+          <div class="fw-bold">إجمالي الصافي (كل الموظفين)</div>
+          <div class="text-muted small">مجموع شهر {{ month }}</div>
+        </div>
+        <div class="col-md-3">
+          <div class="fs-4 fw-bold">{{ '%.3f'|format(totals.grand_total) }}</div>
+        </div>
+        <div class="col-md-3 text-end">
+          {% if batch.status != 'CLOSED' %}
+            <form class="d-inline" method="post" action="/hr/payroll-batches/{{ batch.id }}/approve">
+              <button class="btn btn-primary" type="submit"><i class="bi bi-check2-circle"></i> اعتماد</button>
+            </form>
+            <form class="d-inline" method="post" action="/hr/payroll-batches/{{ batch.id }}/close">
+              <button class="btn btn-success" type="submit"><i class="bi bi-lock"></i> إغلاق الشهر</button>
+            </form>
+          {% else %}
+            <button class="btn btn-outline-success" disabled><i class="bi bi-lock-fill"></i> مغلق</button>
+          {% endif %}
+        </div>
+      </div>
+      <hr>
+      <div class="row g-2 small">
+        <div class="col-md-3"><span class="text-muted">الأساسي:</span> {{ '%.3f'|format(totals.salary_monthly) }}</div>
+        <div class="col-md-3"><span class="text-muted">خصم غياب:</span> {{ '%.3f'|format(totals.absent_deduction) }}</div>
+        <div class="col-md-3"><span class="text-muted">خصم تأخير:</span> {{ '%.3f'|format(totals.late_deduction) }}</div>
+        <div class="col-md-3"><span class="text-muted">خصم مغادرة:</span> {{ '%.3f'|format(totals.early_leave_deduction) }}</div>
+        <div class="col-md-3"><span class="text-muted">إضافي:</span> {{ '%.3f'|format(totals.overtime_add) }}</div>
+        <div class="col-md-3"><span class="text-muted">بونص:</span> {{ '%.3f'|format(totals.bonus_add) }}</div>
+        <div class="col-md-3"><span class="text-muted">تعديل يدوي:</span> {{ '%.3f'|format(totals.manual_adjustments_total) }}</div>
+        <div class="col-md-3"><span class="text-muted">مجموع الإضافات:</span> {{ '%.3f'|format(totals.total_additions) }}</div>
+        <div class="col-md-3"><span class="text-muted">مجموع الخصومات:</span> {{ '%.3f'|format(totals.total_deductions) }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card border-0 shadow-sm">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>الكود</th>
+            <th>الموظف</th>
+            <th>حضور</th>
+            <th>غياب</th>
+            <th>تأخير/مغادرة (د)</th>
+            <th>أوفر (د)</th>
+            <th>الأساسي</th>
+            <th>صافي</th>
+            <th>تعديل يدوي</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in rows %}
+            <tr>
+              <td class="text-muted">{{ r.emp.employee_code }}</td>
+              <td>
+                <div class="fw-bold">{{ r.emp.full_name }}</div>
+                <div class="text-muted" style="font-size:12px;">ID: {{ r.emp.id }}</div>
+              </td>
+              <td>{{ r.summary.days_present }}</td>
+              <td>{{ r.summary.days_absent }}</td>
+              <td>
+                <div>تأخير: {{ r.summary.late_minutes }}</div>
+                <div>مغادرة: {{ r.summary.early_leave_minutes or 0 }}</div>
+              </td>
+              <td>{{ r.summary.overtime_minutes }}</td>
+              <td class="fw-bold">{{ '%.3f'|format(r.summary.salary_monthly or 0) }}</td>
+              <td class="fw-bold">{{ '%.3f'|format(r.summary.total or 0) }}</td>
+              <td style="min-width:280px;">
+                {% if batch.status != 'CLOSED' %}
+                  <form method="post" action="/hr/payroll/adjust" class="d-flex gap-1">
+                    <input type="hidden" name="month" value="{{ month }}">
+                    <input type="hidden" name="emp_id" value="{{ r.emp.id }}">
+                    <input type="hidden" name="next_url" value="/hr/payroll-batches/{{ batch.id }}">
+                    <input class="form-control form-control-sm" name="amount" placeholder="-10" style="width:90px" required>
+                    <input class="form-control form-control-sm" name="reason" placeholder="سبب الخصم/الإضافة">
+                    <button class="btn btn-sm btn-success" type="submit">حفظ</button>
+                  </form>
+                  <div class="text-muted" style="font-size:11px;">السالب = خصم</div>
+                {% else %}
+                  <span class="text-muted">مغلق</span>
+                {% endif %}
+              </td>
+              <td class="text-end">
+                <button class="btn btn-sm btn-outline-dark" onclick='showWhy({{ loop.index0 }})' type="button">تفاصيل</button>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const payloads = [
+    {% for r in rows %}
+      {{ r.breakdown_json | safe }},
+    {% endfor %}
+  ];
+
+  function showWhy(i){
+    const days = payloads[i] || [];
+    const lines = [];
+    for (const d of days){
+      const items = d.items || [];
+      for (const it of items){
+        lines.push(`${d.date}: ${it.note} => ${it.amount}`);
+      }
+      lines.push(`--- تأثير اليوم: ${d.day_adjust}`);
+      lines.push("");
+    }
+    showPayrollDetails(lines.join("\n"));
+  }
+</script>
+
+<!-- Details Modal -->
+<div class="modal fade" id="payrollDetailsModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" style="font-weight:900;">تفاصيل الخصومات/التأثير</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <pre id="payrollDetailsBody" style="white-space:pre-wrap; margin:0; color: var(--text); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;"></pre>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-accent" data-bs-dismiss="modal">حسناً</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function showPayrollDetails(text){
+    const el = document.getElementById("payrollDetailsModal");
+    const body = document.getElementById("payrollDetailsBody");
+    if (!el || !body){
+      alert(text);
+      return;
+    }
+    body.textContent = text;
+    const modal = bootstrap.Modal.getOrCreateInstance(el);
+    modal.show();
+  }
+</script>
+
+{% endblock %}

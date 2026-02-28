@@ -1,0 +1,229 @@
+{% extends "_modern_base.html" %}
+{% block title %}مراجعة المخالفات{% endblock %}
+{% block brand_title %}HR{% endblock %}
+{% block brand_subtitle %}مراجعة التأخير/المغادرة/الغياب{% endblock %}
+
+{% block content %}
+{% set back_url = request.url.path %}{% if request.url.query %}{% set back_url = back_url ~ '?' ~ request.url.query %}{% endif %}
+<div class="container py-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h4 class="mb-0">{{ title or "مراجعة المخالفات" }}</h4>
+      <div class="text-muted" style="font-size: 13px;">
+        بدون فلترة تاريخ = يعرض من بداية الشهر الحالي حتى اليوم
+      </div>
+    </div>
+
+    <form class="d-flex gap-2" method="get" action="/hr/review">
+      <input class="form-control form-control-sm" type="date" name="date_str" value="{{ date_str or '' }}">
+      <select class="form-select form-select-sm" name="kind">
+        <option value="" {% if not kind %}selected{% endif %}>كل الأنواع</option>
+        <option value="late" {% if kind=="late" %}selected{% endif %}>تأخير</option>
+        <option value="early_leave" {% if kind=="early_leave" %}selected{% endif %}>مغادرة</option>
+        <option value="absence" {% if kind=="absence" %}selected{% endif %}>غياب</option>
+      </select>
+      <button class="btn btn-primary btn-sm" type="submit">عرض</button>
+    </form>
+
+    <form method="post" action="/hr/commit/month" class="d-flex gap-2 align-items-center">
+      <input type="hidden" name="month" value="{{ month }}">
+      <input type="hidden" name="next_url" value="/hr/review{% if kind %}?kind={{ kind }}{% endif %}{% if date_str %}{% if not kind %}?{% else %}&{% endif %}date_str={{ date_str }}{% endif %}">
+      <button class="btn btn-outline-primary btn-sm" type="submit">توليد/تثبيت مخالفات الشهر</button>
+    </form>
+
+  </div>
+
+  <div class="row g-3">
+    <!-- LATE -->
+    <div class="col-12 col-lg-6">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <h6 class="fw-bold mb-2">مراجعات التأخير (Pending)</h6>
+          <div class="table-responsive">
+            <table class="table table-sm table-dark table-striped align-middle mb-0">
+              <thead>
+                <tr>
+                  <th>التاريخ</th>
+                  <th>الموظف</th>
+                  <th>بداية الدوام</th>
+                  <th>أول دخول</th>
+                  <th class="text-end">الدقائق</th>
+                  <th>ملاحظة</th>
+                  <th class="text-end">إجراء</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% if not late_rows %}
+                  <tr><td colspan="7" class="text-muted">لا يوجد مراجعات تأخير حالياً.</td></tr>
+                {% endif %}
+                {% for r in late_rows %}
+                  <tr>
+                    <td class="mono">{{ r.date }}</td>
+                    <td>{{ r.emp.full_name }}</td>
+                    <td class="mono">
+                      {% if r.sched_start %}{{ r.sched_start.strftime("%H:%M:%S") }}{% else %}-{% endif %}
+                    </td>
+                    <td class="mono">
+                      {% if r.first_in %}{{ r.first_in.strftime("%H:%M:%S") }}{% else %}-{% endif %}
+                    </td>
+                    <td class="mono text-end">{{ r.minutes }}</td>
+                    <td class="text-muted" style="max-width: 240px; white-space: normal;">
+                      {{ r.note or "-" }}
+                    </td>
+                    <td class="text-end">
+                      <form method="post" action="/hr/review/decide" class="d-inline">
+                        <input type="hidden" name="back" value="{{ back_url }}">
+                        <input type="hidden" name="kind" value="late">
+                        <input type="hidden" name="date_str" value="{{ r.date }}">
+                        <input type="hidden" name="emp_id" value="{{ r.emp.id }}">
+                        <input type="hidden" name="decision" value="APPROVED">
+                        <button class="btn btn-success btn-sm">OK</button>
+                      </form>
+                      <form method="post" action="/hr/review/decide" class="d-inline">
+                        <input type="hidden" name="back" value="{{ back_url }}">
+                        <input type="hidden" name="kind" value="late">
+                        <input type="hidden" name="date_str" value="{{ r.date }}">
+                        <input type="hidden" name="emp_id" value="{{ r.emp.id }}">
+                        <input type="hidden" name="decision" value="REJECTED">
+                        <button class="btn btn-outline-light btn-sm">رفض</button>
+                      </form>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- EARLY LEAVE -->
+    <div class="col-12 col-lg-6">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <h6 class="fw-bold mb-2">مراجعات المغادرة (Pending)</h6>
+          <div class="text-muted" style="font-size: 12px;">
+            كل عملية مغادرة تُعرض كبند مستقل: خروج→دخول، أو خروج→نهاية الدوام إذا ما رجع.
+          </div>
+          <div class="table-responsive mt-2">
+            <table class="table table-sm table-dark table-striped align-middle mb-0">
+              <thead>
+                <tr>
+                  <th>التاريخ</th>
+                  <th>الموظف</th>
+                  <th>وقت الخروج</th>
+                  <th>إلى</th>
+                  <th class="text-end">الدقائق</th>
+                  <th>ملاحظة</th>
+                  <th class="text-end">إجراء</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% if not early_rows %}
+                  <tr><td colspan="7" class="text-muted">لا يوجد مراجعات مغادرة حالياً.</td></tr>
+                {% endif %}
+                {% for r in early_rows %}
+                  <tr>
+                    <td class="mono">{{ r.date }}</td>
+                    <td>{{ r.emp.full_name }}</td>
+                    <td class="mono">
+                      {% if r.out_ts %}{{ r.out_ts.strftime("%H:%M:%S") }}{% else %}-{% endif %}
+                    </td>
+                    <td class="mono">
+                      {% if r.in_ts %}
+                        {{ r.in_ts.strftime("%H:%M:%S") }}
+                      {% else %}
+                        {{ r.end_ts.strftime("%H:%M:%S") }} <span class="text-muted">(نهاية الدوام)</span>
+                      {% endif %}
+                    </td>
+                    <td class="mono text-end">{{ r.minutes }}</td>
+                    <td class="text-muted" style="max-width: 240px; white-space: normal;">
+                      {{ r.note or "-" }}
+                    </td>
+                    <td class="text-end">
+                      <form method="post" action="/hr/review/decide" class="d-inline">
+                        <input type="hidden" name="back" value="{{ back_url }}">
+                        <input type="hidden" name="kind" value="early_leave">
+                        <input type="hidden" name="date_str" value="{{ r.date }}">
+                        <input type="hidden" name="emp_id" value="{{ r.emp.id }}">
+                        <input type="hidden" name="segment_id" value="{{ r.seg.id }}">
+                        <input type="hidden" name="decision" value="APPROVED">
+                        <button class="btn btn-success btn-sm">OK</button>
+                      </form>
+                      <form method="post" action="/hr/review/decide" class="d-inline">
+                        <input type="hidden" name="back" value="{{ back_url }}">
+                        <input type="hidden" name="kind" value="early_leave">
+                        <input type="hidden" name="date_str" value="{{ r.date }}">
+                        <input type="hidden" name="emp_id" value="{{ r.emp.id }}">
+                        <input type="hidden" name="segment_id" value="{{ r.seg.id }}">
+                        <input type="hidden" name="decision" value="REJECTED">
+                        <button class="btn btn-outline-light btn-sm">رفض</button>
+                      </form>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ABSENCE -->
+    <div class="col-12">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <h6 class="fw-bold mb-2">مراجعات الغياب (Pending)</h6>
+          <div class="table-responsive">
+            <table class="table table-sm table-dark table-striped align-middle mb-0">
+              <thead>
+                <tr>
+                  <th>التاريخ</th>
+                  <th>الموظف</th>
+                  <th>بداية الدوام</th>
+                  <th>نهاية الدوام</th>
+                  <th>ملاحظة</th>
+                  <th class="text-end">إجراء</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% if not absence_rows %}
+                  <tr><td colspan="6" class="text-muted">لا يوجد مراجعات غياب حالياً.</td></tr>
+                {% endif %}
+                {% for r in absence_rows %}
+                  <tr>
+                    <td class="mono">{{ r.date }}</td>
+                    <td>{{ r.emp.full_name }}</td>
+                    <td class="mono">{% if r.sched_start %}{{ r.sched_start.strftime("%H:%M:%S") }}{% else %}-{% endif %}</td>
+                    <td class="mono">{% if r.sched_end %}{{ r.sched_end.strftime("%H:%M:%S") }}{% else %}-{% endif %}</td>
+                    <td class="text-muted" style="max-width: 320px; white-space: normal;">{{ r.note or "-" }}</td>
+                    <td class="text-end">
+                      <form method="post" action="/hr/review/decide" class="d-inline">
+                        <input type="hidden" name="back" value="{{ back_url }}">
+                        <input type="hidden" name="kind" value="absence">
+                        <input type="hidden" name="date_str" value="{{ r.date }}">
+                        <input type="hidden" name="emp_id" value="{{ r.emp.id }}">
+                        <input type="hidden" name="decision" value="APPROVED">
+                        <button class="btn btn-success btn-sm">OK</button>
+                      </form>
+                      <form method="post" action="/hr/review/decide" class="d-inline">
+                        <input type="hidden" name="back" value="{{ back_url }}">
+                        <input type="hidden" name="kind" value="absence">
+                        <input type="hidden" name="date_str" value="{{ r.date }}">
+                        <input type="hidden" name="emp_id" value="{{ r.emp.id }}">
+                        <input type="hidden" name="decision" value="REJECTED">
+                        <button class="btn btn-outline-light btn-sm">رفض</button>
+                      </form>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

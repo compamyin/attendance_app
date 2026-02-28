@@ -1,0 +1,74 @@
+{% extends "_modern_base.html" %}
+{% block title %}الموظفين{% endblock %}
+{% block brand_title %}HR{% endblock %}
+{% block brand_subtitle %}نفس العمليات — تصميم أحدث{% endblock %}
+{% block content %}
+  <div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h3 class="mb-0">الموظفين</h3>
+      <div class="d-flex align-items-center gap-2">
+        <a class="btn btn-sm btn-primary" href="/hr/employees/new">إضافة موظف</a>
+        <a class="btn btn-sm btn-outline-primary" href="/hr/create-manager">إضافة مدير</a>
+        <span class="text-muted ms-2">الإجمالي: {{ employees|length }}</span>
+      </div>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-striped align-middle">
+        <thead>
+          <tr>
+            <th>صورة</th>
+            <th>Employee ID</th>
+            <th>الاسم</th>
+            <th>الهاتف</th>
+            <th>الرقم الوطني</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for e in employees %}
+          <tr class="{% if not e.is_active %}inactive{% endif %}">
+            <td>
+              {% if e.profile_photo_path %}
+                <img src="/media/{{ e.profile_photo_path }}" class="emp-photo" data-bs-toggle="modal" data-bs-target="#photoModal{{ e.id }}" alt="photo">
+                <div class="modal fade" id="photoModal{{ e.id }}" tabindex="-1" aria-hidden="true">
+                  <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                      <div class="modal-body p-0">
+                        <img src="/media/{{ e.profile_photo_path }}" style="width:100%;height:auto" alt="photo">
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              {% else %}
+                <div class="emp-photo d-flex align-items-center justify-content-center bg-white">👤</div>
+              {% endif %}
+            </td>
+            <td>{{ e.employee_code }}</td>
+            <td style="font-weight:700;">
+              <a href="/hr/employees/{{ e.id }}" style="text-decoration:none;color:inherit;">{{ e.full_name }}</a>
+            </td>
+            <td>{{ e.phone or '-' }}</td>
+            <td>{{ e.national_id or '-' }}</td>
+            <td class="text-end">
+              <a class="btn btn-sm btn-outline-primary" href="/hr/employees/{{ e.id }}">ملف الموظف</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <a class="btn btn-outline-secondary" href="/hr/dashboard">رجوع</a>
+  </div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+{% endblock %}
+{% block extra_head %}
+<style>
+
+    .emp-photo{width:34px;height:34px;border-radius:50%;object-fit:cover;border:1px solid #ddd;cursor:pointer}
+    tr.inactive{opacity:.55}
+  
+</style>
+{% endblock %}

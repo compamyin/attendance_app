@@ -1,0 +1,89 @@
+{% extends "_modern_base.html" %}
+{% block title %}إعدادات الدوام - HR{% endblock %}
+{% block brand_title %}HR{% endblock %}
+{% block brand_subtitle %}نفس العمليات — تصميم أحدث{% endblock %}
+{% block content %}
+<div class="container py-4">
+  {% if err == 'bad_time' %}
+    <div class="alert alert-danger">أوقات الدوام غير صحيحة: وقت النهاية لازم يكون بعد وقت البداية.</div>
+  {% endif %}
+  {% if err == 'parse' %}
+    <div class="alert alert-danger">في خطأ في إدخال الوقت/التاريخ.</div>
+  {% endif %}
+
+  <div class="card rounded-4 shadow-sm">
+    <div class="card-body p-4">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="mb-0">إعدادات اليوم</h5>
+        <div class="muted">التاريخ: <b>{{ today }}</b></div>
+      </div>
+
+      <form method="post" action="/hr/settings" class="vstack gap-3">
+        <input type="hidden" name="date_str" value="{{ today }}">
+
+        <div class="row g-2">
+          <div class="col-12 col-md-6">
+            <label class="form-label">بداية الدوام</label>
+            <input type="time" name="work_start" class="form-control" value="{{ work_start }}" required>
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label">نهاية الدوام</label>
+            <input type="time" name="work_end" class="form-control" value="{{ work_end }}" required>
+          </div>
+        </div>
+
+        <div class="row g-2">
+          <div class="col-12 col-md-4">
+            <label class="form-label">سماحية التأخير (دقيقة)</label>
+            <input type="number" name="grace_minutes" class="form-control" min="0" value="{{ grace_minutes }}">
+            <div class="muted" style="font-size:12px;">مثال: 10 دقائق يعني التأخير أقل من 10 ما ينحسب.</div>
+          </div>
+          <div class="col-12 col-md-4">
+            <label class="form-label">سماحية المغادرة المبكرة (دقيقة)</label>
+            <input type="number" name="early_leave_grace_minutes" class="form-control" min="0" value="{{ early_leave_grace_minutes }}">
+            <div class="muted" style="font-size:12px;">قبل نهاية الدوام ضمن هالمدة ما ينحسب مغادرة.</div>
+          </div>
+          <div class="col-12 col-md-4">
+            <label class="form-label">معامل الإضافي</label>
+            <input type="number" name="overtime_multiplier" class="form-control" step="0.1" min="1" value="{{ settings.overtime_multiplier if settings else 1.5 }}">
+            <div class="muted" style="font-size:12px;">1.5 = ساعة إضافي = ساعة * 150%.</div>
+          </div>
+        </div>
+
+        <div class="row g-2">
+          <div class="col-12 col-md-6">
+            <label class="form-label">سماحية الإضافي بعد نهاية الدوام (دقيقة)</label>
+            <input type="number" name="overtime_grace_minutes" class="form-control" min="0" value="{{ overtime_grace_minutes }}">
+            <div class="muted" style="font-size:12px;">آخر خروج ضمن هالنافذة ما ينحسب إضافي.</div>
+          </div>
+          <div class="col-12 col-md-6">
+            <label class="form-label">الحد الأدنى للإضافي (دقيقة)</label>
+            <input type="number" name="overtime_min_minutes" class="form-control" min="0" value="{{ overtime_min_minutes }}">
+            <div class="muted" style="font-size:12px;">إذا الإضافي أقل من هالرقم ما ينحسب.</div>
+          </div>
+        </div>
+
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" value="1" id="isHoliday" name="is_holiday" {% if settings and settings.is_holiday %}checked{% endif %}>
+          <label class="form-check-label" for="isHoliday">عطلة</label>
+        </div>
+
+        <div class="d-flex gap-2">
+          <button class="btn btn-primary">حفظ</button>
+          <a class="btn btn-outline-light" href="/hr/dashboard">رجوع</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_head %}
+<style>
+
+    body{background:#0b0b0b;color:#fff;}
+    .card{background:#121212;border:1px solid #222;}
+    .muted{opacity:.75}
+    label{color:#ddd;}
+  
+</style>
+{% endblock %}

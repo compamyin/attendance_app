@@ -1,0 +1,93 @@
+{% set path = (request.url.path if request else '') %}
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}بوابة المدير{% endblock %}</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="/static/modern.css" rel="stylesheet">
+
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo">M</div>
+        <div class="meta">
+          <div class="brand-title">Manager</div>
+          <small class="muted">عرض فقط • فلترة • تصدير</small>
+        </div>
+      </div>
+
+      <div class="muted section-title">Manager Portal</div>
+
+      <a class="navbtn {% if path=='/manager' or '/manager/dashboard' in path %}active{% endif %}" href="/manager">
+        <span class="left"><i class="bi bi-speedometer2"></i> Dashboard</span>
+        <span class="hint">KPIs</span>
+      </a>
+
+      <a class="navbtn {% if '/manager/reports' in path %}active{% endif %}" href="/manager/reports">
+        <span class="left"><i class="bi bi-bar-chart"></i> Employee Reports</span>
+        <span class="hint">Trends</span>
+      </a>
+
+      <a class="navbtn {% if '/manager/payroll' in path %}active{% endif %}" href="/manager/payroll">
+        <span class="left"><i class="bi bi-cash-coin"></i> Payroll Overview</span>
+        <span class="hint">Read-only</span>
+      </a>
+
+      <a class="navbtn {% if '/manager/employees' in path %}active{% endif %}" href="/manager/employees">
+        <span class="left"><i class="bi bi-people"></i> Employees</span>
+        <span class="hint">Browse</span>
+      </a>
+
+      <div class="panel-note mt-3">
+        <div class="note-title">ملاحظة</div>
+        <div class="note-text">لا يوجد أي تعديل من هنا. كل شيء للعرض فقط.</div>
+      </div>
+
+      <div class="muted section-title mt-3">Quick</div>
+      <a class="navbtn" href="/hr/login">
+        <span class="left"><i class="bi bi-shield-lock"></i> HR Login</span>
+        <span class="hint">optional</span>
+      </a>
+    </aside>
+
+    <main class="content">
+      <div class="topbar">
+        <div class="search">
+          <i class="bi bi-search muted"></i>
+          <input id="globalSearch" placeholder="ابحث عن موظف بالاسم أو الكود..." />
+        </div>
+        <div class="pill"><i class="bi bi-geo-alt muted"></i><span>Asia/Amman</span></div>
+        <div class="pill"><i class="bi bi-person-circle muted"></i>
+          <span>{{ user.username if user else 'MANAGER' }}</span>
+        </div>
+      </div>
+
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    const gs = document.getElementById('globalSearch');
+    if(gs){
+      gs.addEventListener('keydown', (e)=>{
+        if(e.key !== 'Enter') return;
+        const q = (gs.value || '').trim();
+        if(!q) return;
+        const url = new URL('/manager/employees', window.location.origin);
+        url.searchParams.set('q', q);
+        window.location.href = url.toString();
+      });
+    }
+  </script>
+
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

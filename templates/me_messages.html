@@ -1,0 +1,53 @@
+{% extends "_emp_base.html" %}
+{% block title %}الرسائل{% endblock %}
+
+{% block content %}
+<div class="container py-4" style="max-width:1100px">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0">الرسائل</h4>
+    <a class="btn btn-outline-secondary" href="/dashboard">رجوع</a>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-12 col-lg-5">
+      <div class="card border-0 shadow-sm rounded-4">
+        <div class="card-body p-4">
+          <h5 class="mb-3">إرسال رسالة للـ HR/الإدارة</h5>
+          <form method="post" action="/me/messages">
+            <textarea class="form-control mb-2" name="body" rows="4" placeholder="اكتب رسالتك..." required></textarea>
+            <button class="btn btn-dark w-100">إرسال</button>
+          </form>
+          <div class="text-muted small mt-2">الرسالة بتظهر فوراً عند HR في صفحة الرسائل.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-lg-7">
+      <div class="card border-0 shadow-sm rounded-4">
+        <div class="card-body p-4">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h5 class="mb-0">سجل الرسائل</h5>
+            <span class="text-muted small">{{ messages|length }} رسالة</span>
+          </div>
+
+          {% if not messages %}
+            <div class="text-muted">لا يوجد رسائل حتى الآن.</div>
+          {% else %}
+            <div class="msg-wrap">
+              {% for m in messages|reverse %}
+                <div class="msg-bubble {% if m.direction=='HR_TO_EMP' %}them{% else %}me{% endif %}">
+                  <div class="d-flex justify-content-between align-items-center">
+                    <div class="fw-semibold">{% if m.direction=='HR_TO_EMP' %}HR{% else %}أنت{% endif %}</div>
+                    <div class="msg-meta">{{ m.created_at }}</div>
+                  </div>
+                  <div class="mt-2" style="white-space:pre-wrap">{{ m.body }}</div>
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

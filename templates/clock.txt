@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>تسجيل الدوام</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+  <style>
+    body { background: #0b1220; }
+    .card { border: 0; border-radius: 16px; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+  </style>
+</head>
+<body>
+  <nav class="navbar navbar-dark" style="background:#0f172a;">
+    <div class="container">
+      <a class="navbar-brand" href="/dashboard">رجوع</a>
+      <span class="text-white-50">{{employee.full_name}}</span>
+    </div>
+  </nav>
+
+  <div class="container py-4">
+    <div class="row justify-content-center">
+      <div class="col-12 col-lg-6">
+        <div class="card shadow-sm">
+          <div class="card-body p-4">
+            <h4 class="mb-1">تسجيل دخول / خروج</h4>
+            <div class="text-secondary mb-3">فعّل الموقع واسمح بالإذن (بدون إدخال أي بيانات).</div>
+
+            <div class="d-flex gap-2">
+              <button class="btn btn-success w-50" onclick="clock('IN')">دخول</button>
+              <button class="btn btn-warning w-50" onclick="clock('OUT')">خروج</button>
+            </div>
+
+            <div id="status" class="alert mt-3 d-none" role="alert"></div>
+
+            <div class="card mt-3" style="background:#0f172a;">
+              <div class="card-body">
+                <div class="small text-secondary mb-1">موقعك الحالي</div>
+                <div id="locText" class="mono text-white-50">جاري تحديد الموقع...</div>
+                <div id="accText" class="small text-secondary mt-1"></div>
+              </div>
+            </div>
+
+            <div class="small text-secondary mt-3">
+              نصيحة: إذا الدقة سيئة، اطلع لمكان مفتوح أو فعّل GPS بدقة عالية.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function show(msg, type) {
+      const el = document.getElementById('status');
+      el.classList.remove('d-none','alert-success','alert-danger','alert-info');
+      el.classList.add('alert-' + type);
+      el.innerText = msg;
+    }
+
+    function setLoc(lat, lng, acc) {
+      document.getElementById('locText').innerText = `Lat: ${lat.toFixed(6)} , Lng: ${lng.toFixed(6)}`;
+      document.getElementById('accText').innerText = acc ? (`الدقة التقريبية: ${Math.round(acc)}m`) : '';
+    }
+
+    function getLocation() {
+      return new Promise((resolve, reject) => {
+        if (!navigator.geolocation) {
+          reject(new Error('GPS غير مدعوم'));
+          return;
+        }
+        navigator.geolocation.getCurrentPosition(
+          (pos) => resolve({
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            accuracy_m: pos.coords.accuracy
+          }),
+          (err) => reject(err),
+          { enableHighAccuracy: true, timeout: 10000 }
+        );
+      });
+    }
+
+    async function clock(action) {
+      try {
+        show('جاري تحديد الموقع...', 'info');
+        const loc = await getLocation();
+        setLoc(loc.lat, loc.lng, loc.accuracy_m);
+
+        const form = new FormData();
+        form.append('action', action);
+        form.append('lat', loc.lat);
+        form.append('lng', loc.lng);
+        form.append('accuracy_m', loc.accuracy_m);
+
+        show(`جاري الإرسال... (دقة: ${Math.round(loc.accuracy_m)}m)`, 'info');
+
+        const res = await fetch('/api/clock', { method: 'POST', body: form });
+        const data = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+          show(data.detail || 'فشل التسجيل', 'danger');
+          return;
+        }
+        show(data.message || 'تم التسجيل بنجاح', 'success');
+      } catch (e) {
+        show('فشل تحديد الموقع. تأكد من تفعيل GPS والسماح بالإذن.', 'danger');
+      }
+    }
+
+    // try set location immediately for user visibility
+    (async () => {
+      try {
+        const loc = await getLocation();
+        setLoc(loc.lat, loc.lng, loc.accuracy_m);
+      } catch (_) {
+        document.getElementById('locText').innerText = 'لم يتم السماح بالموقع أو GPS غير متاح.';
+      }
+    })();
+  </script>
+</body>
+</html>

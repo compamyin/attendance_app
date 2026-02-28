@@ -1,0 +1,236 @@
+{% extends "_modern_base.html" %}
+{% block title %}لوحة HR - اليوم{% endblock %}
+{% block brand_title %}HR{% endblock %}
+{% block brand_subtitle %}نفس العمليات — تصميم أحدث{% endblock %}
+{% block content %}
+<div class="container py-4">
+  {% if err == 'bad_time' %}
+    <div class="alert alert-danger">أوقات الدوام غير صحيحة: وقت النهاية لازم يكون بعد وقت البداية.</div>
+  {% endif %}
+  {% if err == 'parse' %}
+    <div class="alert alert-danger">في خطأ في إدخال الوقت/التاريخ.</div>
+  {% endif %}
+
+  <div class="row g-3">
+    <div class="col-12 col-lg-4">
+      <div class="card rounded-4 shadow-sm">
+        <div class="card-body p-4">
+          <div class="d-flex align-items-center justify-content-between">
+            <h5 class="mb-0">ملخص اليوم</h5>
+            <a class="btn btn-sm btn-outline-info" href="/hr/settings">الإعدادات</a>
+          </div>
+          <div class="muted mt-2">التاريخ: <b>{{ today }}</b> — الوقت الآن: <b>{{ now_time }}</b></div>
+          <hr class="border-secondary my-3" />
+          <div class="row g-2">
+            <div class="col-6">
+              <div class="muted" style="font-size:12px;">بداية الدوام</div>
+              <div style="font-size:18px;font-weight:700">{{ settings.work_start.strftime('%H:%M') if settings and settings.work_start else '09:00' }}</div>
+            </div>
+            <div class="col-6">
+              <div class="muted" style="font-size:12px;">نهاية الدوام</div>
+              <div style="font-size:18px;font-weight:700">{{ settings.work_end.strftime('%H:%M') if settings and settings.work_end else '17:00' }}</div>
+            </div>
+            <div class="col-6">
+              <div class="muted" style="font-size:12px;">سماحية التأخير</div>
+              <div style="font-size:18px;font-weight:700">{{ settings.grace_minutes if settings else 10 }} دقيقة</div>
+            </div>
+            <div class="col-6">
+              <div class="muted" style="font-size:12px;">عطلة</div>
+              <div style="font-size:18px;font-weight:700">{% if settings and settings.is_holiday %}نعم{% else %}لا{% endif %}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-lg-8">
+      <div class="row g-3 mb-3">
+        <div class="col-12 col-md-3">
+          <a href="/hr/dashboard?view=present" style="text-decoration:none;">
+            <div class="card rounded-4 shadow-sm kpi-card">
+              <div class="card-body p-4">
+                <div class="muted mb-1">الحاضر</div>
+                <div style="font-size:32px;font-weight:800">{{ summary.present }}</div>
+              </div>
+            </div>
+          </a>
+        </div>
+        <div class="col-12 col-md-3">
+          <a href="/hr/dashboard?view=late" style="text-decoration:none;">
+            <div class="card rounded-4 shadow-sm kpi-card">
+              <div class="card-body p-4">
+                <div class="muted mb-1">المتأخر</div>
+                <div style="font-size:32px;font-weight:800">{{ summary.late }}</div>
+              </div>
+            </div>
+          </a>
+        </div>
+        <div class="col-12 col-md-3">
+          <a href="/hr/dashboard?view=early" style="text-decoration:none;">
+            <div class="card rounded-4 shadow-sm kpi-card">
+              <div class="card-body p-4">
+                <div class="muted mb-1">المغادرة</div>
+                <div style="font-size:32px;font-weight:800">{{ summary.early_leave }}</div>
+              </div>
+            </div>
+          </a>
+        </div>
+
+        <div class="col-12 col-md-3">
+          <a href="/hr/dashboard?view=absent" style="text-decoration:none;">
+            <div class="card rounded-4 shadow-sm kpi-card">
+              <div class="card-body p-4">
+                <div class="muted mb-1">الغايب</div>
+                <div style="font-size:32px;font-weight:800">{{ summary.absent }}</div>
+              </div>
+            </div>
+          </a>
+        </div>
+      </div>
+
+      {% if view != 'all' %}
+        <div class="card rounded-4 shadow-sm mb-3">
+          <div class="card-body p-4">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <h5 class="mb-0">
+                {% if view == 'present' %}
+                  قائمة الحاضر
+                {% elif view == 'late' %}
+                  قائمة المتأخر
+                {% elif view == 'early' %}
+                  قائمة المغادرة
+                {% else %}
+                  قائمة الغياب
+                {% endif %}
+              </h5>
+              <a class="btn btn-outline-light btn-sm" href="/hr/dashboard">رجوع</a>
+            </div>
+
+            <div class="row g-2">
+              {% set lst = present_list if view=='present' else (late_list if view=='late' else (early_leave_list if view=='early' else absent_list)) %}
+              {% for e in lst %}
+                <div class="col-12 col-md-6">
+                  <div class="card rounded-4" style="background:#0f172a;border:1px solid #1e293b;">
+                    <div class="card-body d-flex align-items-center gap-3 py-3">
+                      {% if e.photo %}
+                        <img class="emp-photo" src="/{{ e.photo }}" alt="photo">
+                      {% else %}
+                        <div class="emp-photo d-flex align-items-center justify-content-center" style="background:#111;">👤</div>
+                      {% endif %}
+                      <div class="flex-grow-1">
+                        <div style="font-weight:800">
+                          <a href="/hr/report?emp_id={{ e.emp_id }}&date_str={{ today.strftime('%Y-%m-%d') if today else '' }}" style="text-decoration:none;">{{ e.full_name }}</a>
+                        </div>
+                        <div class="muted" style="font-size:12px;">{{ e.employee_code }}</div>
+                        {% if view == 'late' %}
+                          <div class="muted" style="font-size:12px;">تأخير: <b>{{ e.late_minutes }}</b> د</div>
+                        {% elif view == 'early' %}
+                          <div class="muted" style="font-size:12px;">مغادرة: <b>{{ e.early_leave_minutes }}</b> د</div>
+                        {% elif view == 'absent' %}
+                          <div class="muted" style="font-size:12px;">غياب اليوم</div>
+                        {% endif %}
+                      </div>
+                      <div class="d-flex gap-2">
+                        <a class="btn btn-sm btn-outline-light" href="/hr/report?emp_id={{ e.emp_id }}&date_str={{ today.strftime('%Y-%m-%d') if today else '' }}">فتح</a>
+</div>
+                    </div>
+                  </div>
+                </div>
+              {% endfor %}
+              {% if lst|length == 0 %}
+                <div class="muted">لا يوجد</div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      {% endif %}
+
+      <div class="card rounded-4 shadow-sm">
+        <div class="card-body p-4">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0">كشف اليوم</h5>
+            <div class="d-flex gap-2">
+              <a class="btn btn-outline-light btn-sm" href="/hr/today.csv">CSV</a>
+              <a class="btn btn-outline-light btn-sm" href="/hr/report?month={{ today.strftime('%Y-%m') }}">تقرير الشهر</a>
+            </div>
+          </div>
+
+          <div class="table-responsive">
+            <table class="table table-dark table-hover align-middle" style="border-color:#222;">
+              <thead>
+                <tr>
+                  <th>الموظف</th>
+                  <th>أول دخول</th>
+                  <th>آخر خروج</th>
+                  <th>مدة الدوام</th>
+                  <th>الموقع</th>
+                  <th>الفيديو</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for r in rows %}
+                  <tr>
+                    <td>
+                      <div class="d-flex align-items-center gap-2">
+                        {% if r.photo %}
+                          <img class="emp-photo" src="/{{ r.photo }}" alt="photo">
+                        {% else %}
+                          <div class="emp-photo d-flex align-items-center justify-content-center" style="background:#111;">👤</div>
+                        {% endif %}
+                        <div>
+                          <div style="font-weight:800;">
+                            <a href="/hr/report?emp_id={{ r.emp_id }}&date_str={{ today.strftime('%Y-%m-%d') }}" style="text-decoration:none;">
+                              {{ r.full_name }}
+                            </a>
+                          </div>
+                          <div class="muted" style="font-size:12px;">{{ r.employee_code }}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td class="muted">{{ r.first_in or '-' }}</td>
+                    <td class="muted">{{ r.last_out or '-' }}</td>
+                    <td class="muted">{{ r.work_duration or '-' }}</td>
+                    <td>
+                      {% if r.map_url %}
+                        <a class="btn btn-sm btn-outline-info" target="_blank" href="{{ r.map_url }}">فتح</a>
+                        <div class="muted" style="font-size:12px;">
+                          {{ r.region or '' }} {{ r.area or '' }}
+                        </div>
+                      {% else %}
+                        <span class="muted">-</span>
+                      {% endif %}
+                    </td>
+                    <td>
+                      {% if r.video_path %}
+                        <a class="btn btn-sm btn-outline-warning" target="_blank" href="/media/{{ r.video_path | replace('media/','') }}">فتح</a>
+                      {% else %}
+                        <span class="muted">-</span>
+                      {% endif %}
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_head %}
+<style>
+
+    body{background:#0b0b0b;color:#fff;}
+    .card{background:#121212;border:1px solid #222;}
+    .muted{opacity:.75}
+    table{color:#fff;}
+    .badge-pill{border-radius:999px;padding:.45rem .65rem;}
+    .emp-photo{width:34px;height:34px;border-radius:50%;object-fit:cover;border:1px solid #333;}
+    .kpi-card{cursor:pointer;transition:transform .08s ease;}
+    .kpi-card:hover{transform:translateY(-2px);}
+    a{color:inherit}
+  
+</style>
+{% endblock %}

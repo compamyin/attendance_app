@@ -1,0 +1,118 @@
+{% set path = (request.url.path if request else '') %}
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}لوحة الإدارة{% endblock %}</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="/static/modern.css" rel="stylesheet">
+
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo">A</div>
+        <div class="meta">
+          <div class="brand-title">{% block brand_title %}Admin / HR{% endblock %}</div>
+          <small class="muted">{% block brand_subtitle %}واجهة حديثة - بدون تغيير عمليات{% endblock %}</small>
+        </div>
+      </div>
+
+      <div class="muted section-title">HR</div>
+
+      <a class="navbtn {% if '/hr/dashboard' in path %}active{% endif %}" href="/hr/dashboard">
+        <span class="left"><i class="bi bi-speedometer2"></i> لوحة اليوم</span>
+        <span class="hint">KPIs</span>
+      </a>
+
+      <a class="navbtn {% if '/hr/review' in path %}active{% endif %}" href="/hr/review">
+        <span class="left"><i class="bi bi-check2-circle"></i> المراجعة</span>
+        <span class="hint">قرارات</span>
+      </a>
+
+      <a class="navbtn {% if '/hr/employees' in path %}active{% endif %}" href="/hr/employees">
+        <span class="left"><i class="bi bi-people"></i> الموظفين</span>
+        <span class="hint">تعديل</span>
+      </a>
+
+      <a class="navbtn {% if '/hr/payroll' in path %}active{% endif %}" href="/hr/payroll">
+        <span class="left"><i class="bi bi-cash-coin"></i> الرواتب</span>
+        <span class="hint">شهر</span>
+      </a>
+
+      <a class="navbtn {% if '/hr/payroll-batches' in path %}active{% endif %}" href="/hr/payroll-batches">
+        <span class="left"><i class="bi bi-calendar2-check"></i> دفعات الرواتب</span>
+        <span class="hint">اعتماد/إغلاق</span>
+      </a>
+
+      <a class="navbtn {% if '/hr/messages' in path %}active{% endif %}" href="/hr/messages">
+        <span class="left"><i class="bi bi-chat-dots"></i> الرسائل</span>
+        <span class="hint">محادثات</span>
+      </a>
+
+      <a class="navbtn {% if '/hr/tickets' in path %}active{% endif %}" href="/hr/tickets">
+        <span class="left"><i class="bi bi-inboxes"></i> الدعم</span>
+        <span class="hint">تذاكر</span>
+      </a>
+
+      <a class="navbtn {% if '/hr/report' in path %}active{% endif %}" href="/hr/report">
+        <span class="left"><i class="bi bi-bar-chart"></i> التقارير</span>
+        <span class="hint">تصدير</span>
+      </a>
+
+      <a class="navbtn {% if '/hr/settings' in path %}active{% endif %}" href="/hr/settings">
+        <span class="left"><i class="bi bi-gear"></i> الإعدادات</span>
+        <span class="hint">سياسات</span>
+      </a>
+
+      <div class="muted section-title mt-3">Admin</div>
+
+      <a class="navbtn {% if '/admin/dashboard' in path or path=='/admin' %}active{% endif %}" href="/admin/dashboard">
+        <span class="left"><i class="bi bi-grid-1x2"></i> لوحة الأدمن</span>
+        <span class="hint">قديم/حديث</span>
+      </a>
+
+      <div class="panel-note mt-3">
+        <div class="note-title">مهم</div>
+        <div class="note-text">التصميم فقط اتغير. المنطق والحسابات زي ما هي.</div>
+      </div>
+    </aside>
+
+    <main class="content">
+      <div class="topbar">
+        <div class="search">
+          <i class="bi bi-search muted"></i>
+          <input id="globalSearch" placeholder="بحث سريع..." />
+        </div>
+        <div class="pill"><i class="bi bi-geo-alt muted"></i><span>Asia/Amman</span></div>
+        <div class="pill"><i class="bi bi-person-circle muted"></i><span>HR/Admin</span></div>
+      </div>
+
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // بحث بسيط: Enter يرسل المستخدم لصفحة الموظفين مع query string (بدون ما نكسر أي شي)
+    const gs = document.getElementById('globalSearch');
+    if(gs){
+      gs.addEventListener('keydown', (e)=>{
+        if(e.key !== 'Enter') return;
+        const q = (gs.value || '').trim();
+        if(!q) return;
+        const url = new URL('/hr/employees', window.location.origin);
+        url.searchParams.set('q', q);
+        window.location.href = url.toString();
+      });
+    }
+  </script>
+
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

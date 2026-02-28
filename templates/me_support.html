@@ -1,0 +1,71 @@
+{% extends "_emp_base.html" %}
+{% block title %}الدعم{% endblock %}
+
+{% block content %}
+<div class="container py-4" style="max-width:980px">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0">استفسار / اقتراح / مشكلة</h4>
+    <a class="btn btn-outline-secondary" href="/dashboard">رجوع</a>
+  </div>
+
+  <div class="card border-0 shadow-sm rounded-4 mb-3">
+    <div class="card-body p-4">
+      <form method="post">
+        <label class="form-label">النوع</label>
+        <select class="form-select mb-3" name="category">
+          <option value="ISSUE">مشكلة</option>
+          <option value="SUGGESTION">اقتراح</option>
+          <option value="INQUIRY">استفسار</option>
+        </select>
+
+        <label class="form-label">الرسالة</label>
+        <textarea class="form-control" name="message" rows="5" required placeholder="اكتب التفاصيل بشكل واضح..."></textarea>
+
+        <button class="btn btn-dark mt-3">فتح تذكرة</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="card border-0 shadow-sm rounded-4">
+    <div class="card-body p-4">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <div class="fw-semibold">تذاكري</div>
+        <div class="text-muted small">آخر 100 تذكرة</div>
+      </div>
+
+      {% if not tickets %}
+        <div class="text-muted">ما عندك تذاكر لحد الآن.</div>
+      {% else %}
+        <div class="table-responsive">
+          <table class="table align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>#</th>
+                <th>النوع</th>
+                <th>الحالة</th>
+                <th>آخر تحديث</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for t in tickets %}
+                <tr>
+                  <td class="mono">{{ t.id }}</td>
+                  <td class="mono">{{ t.category }}</td>
+                  <td class="mono">{{ t.status }}</td>
+                  <td class="text-muted small">{{ t.created_at }}</td>
+                  <td class="text-end"><a class="btn btn-sm btn-primary" href="/me/support/{{ t.id }}">فتح</a></td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_head %}
+<style>.mono{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;}</style>
+{% endblock %}

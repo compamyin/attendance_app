@@ -1,0 +1,153 @@
+{% extends "_modern_base.html" %}
+{% block title %}بيانات موظف{% endblock %}
+{% block brand_title %}HR{% endblock %}
+{% block brand_subtitle %}نفس العمليات — تصميم أحدث{% endblock %}
+{% block content %}
+<div class="container py-4">
+    <a href="/hr/employees" class="btn btn-outline-secondary btn-sm">رجوع</a>
+    <a href="/hr/report?emp_id={{emp.id}}" class="btn btn-outline-primary btn-sm">تقرير الموظف</a>
+    <h3 class="mt-3">{{emp.full_name}} <span class="text-secondary">({{emp.employee_code}})</span></h3>
+
+    <div class="card border-0 shadow-sm rounded-4 mt-3">
+      <div class="card-body p-4">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h5 class="mb-0">ملاحظات للموظف</h5>
+          <span class="text-muted small">تظهر في صفحة ملف الموظف إذا اخترت ذلك</span>
+        </div>
+        <form method="post" action="/hr/employees/{{emp.id}}/note" class="d-flex gap-2">
+          <input class="form-control" name="body" placeholder="اكتب ملاحظة..." required>
+          <select class="form-select" style="max-width:210px" name="visible_to_employee">
+            <option value="1" selected>تظهر للموظف</option>
+            <option value="0">داخلية فقط</option>
+          </select>
+          <button class="btn btn-dark">حفظ</button>
+        </form>
+
+        {% if notes and notes|length > 0 %}
+          <div class="mt-3 d-flex flex-column gap-2" style="max-height:260px; overflow:auto;">
+            {% for n in notes %}
+              <div class="p-3 rounded-4" style="background:rgba(15,23,42,.06)">
+                <div class="d-flex justify-content-between align-items-center">
+                  <div class="fw-semibold">{% if n.visible_to_employee %}ملاحظة{% else %}ملاحظة داخلية{% endif %}</div>
+                  <div class="text-muted small">{{ n.created_at }}</div>
+                </div>
+                <div class="mt-2" style="white-space:pre-wrap">{{ n.body }}</div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="text-muted small mt-2">لا يوجد ملاحظات.</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <form method="post" action="/hr/employees/{{emp.id}}/update" class="mt-3">
+      <div class="row g-3">
+        <div class="col-md-8">
+          <label class="form-label">الاسم</label>
+          <input class="form-control" name="full_name" value="{{emp.full_name}}" required>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">حالة الموظف</label>
+          <select class="form-select" name="is_active">
+            <option value="1" {% if emp.is_active %}selected{% endif %}>Active</option>
+            <option value="0" {% if not emp.is_active %}selected{% endif %}>Inactive</option>
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">الرقم الوطني</label>
+          <input class="form-control" name="national_id" value="{{emp.national_id or ''}}">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">الهاتف</label>
+          <input class="form-control" name="phone" value="{{emp.phone or ''}}">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">IP المسموح</label>
+          <input class="form-control" name="allowed_ip" placeholder="مثال: 192.168.1.10" value="{{emp.allowed_ip or ''}}">
+          <div class="text-muted" style="font-size:12px;">إذا تركته فاضي = بدون تقييد.</div>
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">الراتب الشهري</label>
+          <input class="form-control" name="salary_monthly" type="number" step="0.01" value="{{emp.salary_monthly or ''}}">
+        </div>
+</div>
+      <button class="btn btn-primary mt-3">تحديث</button>
+    </form>
+
+<hr class="my-4">
+<h5 class="mb-3">إعادة تعيين كلمة المرور (PIN)</h5>
+<div class="alert alert-info small mb-3">
+  لا يمكن عرض كلمة المرور الحالية لأنها مخزّنة بشكل مُشفّر (Hash). يمكنك فقط تعيين PIN جديد للموظف.
+</div>
+<form method="post" action="/hr/employees/{{emp.id}}/reset_pin" class="card card-body border-0 shadow-sm">
+  <div class="row g-3">
+    <div class="col-md-4">
+      <label class="form-label">PIN جديد</label>
+      <input class="form-control" name="new_pin" required>
+    </div>
+    <div class="col-md-4">
+      <label class="form-label">تأكيد PIN</label>
+      <input class="form-control" name="confirm_pin" required>
+    </div>
+    <div class="col-md-4 d-flex align-items-end">
+      <button class="btn btn-primary w-100">تحديث PIN</button>
+    </div>
+  </div>
+</form>
+
+
+    
+    <hr class="my-4">
+    <h5 class="mb-3">تعديل التأخير/الغياب (إلغاء/تسوية)</h5>
+    <div class="alert alert-secondary small mb-3">
+      استخدم هذا فقط عند الضرورة. إذا تركت الخيارات بدون تحديد وبدون ملاحظة سيتم حذف التسوية (رجوع للوضع الطبيعي).
+    </div>
+    <form method="post" action="/hr/employees/{{emp.id}}/adjust" class="card card-body border-0 shadow-sm">
+      <div class="row g-3">
+        <div class="col-md-3">
+          <label class="form-label">التاريخ (YYYY-MM-DD)</label>
+          <input class="form-control" name="date_str" placeholder="2026-02-10" required>
+        </div>
+        <div class="col-md-3 d-flex align-items-end">
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" value="1" id="exlate" name="excuse_late">
+            <label class="form-check-label" for="exlate">إلغاء التأخير</label>
+          </div>
+        </div>
+        <div class="col-md-3 d-flex align-items-end">
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" value="1" id="exearly" name="excuse_early_leave">
+            <label class="form-check-label" for="exearly">إلغاء المغادرة</label>
+          </div>
+        </div>
+        <div class="col-md-3 d-flex align-items-end">
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" value="1" id="exabs" name="excuse_absence">
+            <label class="form-check-label" for="exabs">إلغاء الغياب</label>
+          </div>
+        </div>
+        <div class="col-md-12">
+          <label class="form-label">ملاحظة (اختياري)</label>
+          <input class="form-control" name="note" placeholder="سبب التسوية...">
+        </div>
+      </div>
+      <div class="d-flex gap-2 mt-3">
+        <button class="btn btn-success">حفظ التسوية</button>
+        <a class="btn btn-outline-secondary" href="/hr/report?emp_id={{emp.id}}">عرض تقرير الموظف</a>
+      </div>
+    </form>
+
+<hr class="my-4">
+    <div class="d-flex gap-2">
+      <form method="post" action="/hr/employees/{{emp.id}}/deactivate" onsubmit="return confirm('تأكيد: إيقاف الموظف؟');">
+        <button class="btn btn-warning">إيقاف (Inactive)</button>
+      </form>
+      <form method="post" action="/hr/employees/{{emp.id}}/delete" onsubmit="return confirm('تأكيد: حذف نهائي؟ هذا يمسح الموظف وسجلاته!');">
+        <button class="btn btn-danger">حذف نهائي</button>
+      </form>
+    </div>
+
+  </div>
+{% endblock %}

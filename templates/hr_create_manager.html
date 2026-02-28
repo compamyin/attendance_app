@@ -1,0 +1,49 @@
+{% extends "_modern_base.html" %}
+{% block title %}إضافة مدير{% endblock %}
+{% block brand_title %}HR{% endblock %}
+{% block brand_subtitle %}إضافة مدير للبوابة (عرض فقط){% endblock %}
+{% block content %}
+<div class="container py-4" style="max-width:720px">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0">إضافة مدير</h3>
+    <a class="btn btn-sm btn-outline-secondary" href="/hr/employees">رجوع للموظفين</a>
+  </div>
+
+  {% if error %}
+    <div class="alert alert-danger py-2">{{ error }}</div>
+  {% endif %}
+  {% if success %}
+    <div class="alert alert-success py-2">{{ success }}</div>
+  {% endif %}
+
+  <div class="card border-0 shadow-sm">
+    <div class="card-body p-4">
+      <form method="post" action="/hr/create-manager" class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label">اسم المستخدم (ID)</label>
+          <input class="form-control" name="username" required>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">PIN</label>
+          <input class="form-control" name="pin" type="password" required>
+        </div>
+        <div class="col-12">
+          <label class="form-label">كلمة السر</label>
+          <input class="form-control" name="password" type="password" required>
+        </div>
+
+        <div class="col-12">
+          <div class="alert alert-warning py-2 mb-0">
+            هذا المستخدم دوره <b>MANAGER</b> فقط — لا يستطيع الدخول لواجهة HR.
+          </div>
+        </div>
+
+        <div class="col-12 d-flex gap-2">
+          <button class="btn btn-primary">إنشاء مدير</button>
+          <a class="btn btn-outline-primary" href="/manager/login" target="_blank">تجربة دخول المدير</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,119 @@
+{% extends "_emp_base.html" %}
+{% block title %}كشف الراتب{% endblock %}
+
+{% block content %}
+<div class="container py-4" style="max-width:1100px">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h4 class="mb-1">كشف الراتب</h4>
+      <div class="text-muted small">{{ employee.full_name }} • الشهر: <b>{{ month }}</b></div>
+    </div>
+    <a class="btn btn-outline-secondary" href="/dashboard">رجوع</a>
+  </div>
+
+  <div class="row g-3 mb-3">
+    <div class="col-12 col-md-3">
+      <div class="card border-0 shadow-sm rounded-4">
+        <div class="card-body p-4">
+          <div class="text-muted small">الراتب الأساسي</div>
+          <div class="fs-4 fw-bold mono">{{ "%.2f"|format(calc.salary_monthly) }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-md-3">
+      <div class="card border-0 shadow-sm rounded-4">
+        <div class="card-body p-4">
+          <div class="text-muted small">أيام الغياب</div>
+          <div class="fs-4 fw-bold mono">{{ calc.days_absent }}</div>
+          <div class="text-muted small mt-1">خصم: {{ "%.2f"|format(calc.absent_deduction) }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-md-3">
+      <div class="card border-0 shadow-sm rounded-4">
+        <div class="card-body p-4">
+          <div class="text-muted small">مجموع التأخير</div>
+          <div class="fs-4 fw-bold mono">{{ calc.total_late_minutes }} د</div>
+          <div class="text-muted small mt-1">خصم: {{ "%.2f"|format(calc.late_deduction) }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-md-3">
+      <div class="card border-0 shadow-sm rounded-4">
+        <div class="card-body p-4">
+          <div class="text-muted small">تعديلات يدوية</div>
+          <div class="fs-4 fw-bold mono">{{ "%.2f"|format(calc.manual_adjustments_total) }}</div>
+          <div class="text-muted small mt-1">(+/-) من الإدارة فقط</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-3">
+    <div class="col-12 col-md-6">
+      <div class="card border-0 shadow-sm rounded-4">
+        <div class="card-body p-4">
+          <div class="text-muted small">إجمالي الخصومات</div>
+          <div class="fs-3 fw-bold mono">{{ "%.2f"|format(calc.total_deductions) }}</div>
+          <div class="text-muted small mt-1">غياب/تأخير/مغادرة + خصومات يدوية</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-md-6">
+      <div class="card border-0 shadow-sm rounded-4">
+        <div class="card-body p-4">
+          <div class="text-muted small">إجمالي الزيادات</div>
+          <div class="fs-3 fw-bold mono">{{ "%.2f"|format(calc.total_additions) }}</div>
+          <div class="text-muted small mt-1">زيادات يدوية (والإضافي/بونص حسب إعدادات النظام)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card border-0 shadow-sm rounded-4 mb-3">
+    <div class="card-body p-4">
+      <div class="text-muted small">إجمالي الشهر حتى اليوم</div>
+      <div class="fs-2 fw-bold mono">{{ "%.2f"|format(calc.total_pay) }}</div>
+    </div>
+  </div>
+
+  <div class="card border-0 shadow-sm rounded-4">
+    <div class="card-body p-4">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h5 class="mb-0">تفاصيل الأيام</h5>
+        <span class="text-muted small">ملخص شهر-إلى-اليوم</span>
+      </div>
+      <div class="table-responsive">
+        <table class="table align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>اليوم</th>
+              <th>الحالة</th>
+              <th class="mono">تأخير</th>
+              <th class="mono">إضافي</th>
+              <th class="mono">تأثير اليوم</th>
+              <th>شرح</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for b in calc.breakdown %}
+              <tr>
+                <td class="mono">{{ b.date }}</td>
+                <td>{{ b.status }}</td>
+                <td class="mono">{{ b.late_minutes }} د</td>
+                <td class="mono">{{ b.overtime_minutes }} د</td>
+                <td class="mono">{{ "%.2f"|format(b.day_adjust) }}</td>
+                <td class="text-muted small">{{ b.explain }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_head %}
+<style>.mono{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;}</style>
+{% endblock %}

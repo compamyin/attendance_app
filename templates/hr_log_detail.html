@@ -1,0 +1,90 @@
+{% extends "_modern_base.html" %}
+{% block title %}تفاصيل السجل{% endblock %}
+{% block brand_title %}HR{% endblock %}
+{% block brand_subtitle %}نفس العمليات — تصميم أحدث{% endblock %}
+{% block content %}
+<div class="container py-4" style="max-width:900px">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h4 class="mb-0">تفاصيل سجل الدوام</h4>
+      <div class="text-muted">{{ emp.full_name }} ({{ emp.employee_code }})</div>
+    </div>
+    <a class="btn btn-outline-secondary" href="/hr/dashboard">رجوع</a>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-lg-7">
+      <div class="card shadow-sm border-0">
+        <div class="card-body">
+          <div class="fw-bold mb-2">الموقع على الخريطة</div>
+          <div id="map"></div>
+          <div class="small text-muted mt-2">
+            {{ log.server_timestamp }} | دقة: {{ log.accuracy_m }}m
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-5">
+      <div class="card shadow-sm border-0 mb-3">
+        <div class="card-body">
+          <div class="fw-bold mb-2">العملية</div>
+          <div class="fs-5">
+            {% if log.action == "IN" %}
+              <span class="badge text-bg-success">دخول</span>
+            {% else %}
+              <span class="badge text-bg-danger">خروج</span>
+            {% endif %}
+          </div>
+          <div class="text-muted mt-2">IP: {{ log.ip }} | UA: {{ log.user_agent }}</div>
+        </div>
+      </div>
+
+      <div class="card shadow-sm border-0">
+        <div class="card-body">
+          <div class="fw-bold mb-2">فيديو التحقق (5 ثواني)</div>
+          {% if log.video_path %}
+            {# بعض قواعد البيانات تخزن الاسم فقط بدون videos/ #}
+            {% set _vp = log.video_path %}
+            {% if '/' not in _vp %}
+              {% set _vp = 'videos/' ~ _vp %}
+            {% endif %}
+            {% set _mime = '' %}
+            {% if _vp.lower().endswith('.mp4') %}{% set _mime = 'video/mp4' %}{% endif %}
+            {% if _vp.lower().endswith('.webm') %}{% set _mime = 'video/webm' %}{% endif %}
+            <video controls playsinline style="width:100%;border-radius:14px;background:#000">
+              <source src="/media/{{ _vp.replace('media/', '').lstrip('/') }}" {% if _mime %}type="{{ _mime }}"{% endif %}>
+            </video>
+          {% else %}
+            <div class="text-muted">لا يوجد فيديو لهذا السجل.</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script>
+  // Fix: Leaflet يحاول يجيب marker icons كمسارات نسبية (ويصير يضرب /hr/log/marker-icon.png)
+  L.Icon.Default.mergeOptions({
+    iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+    iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+    shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png'
+  });
+  const lat = {{ log.lat or 0 }};
+  const lng = {{ log.lng or 0 }};
+  const map = L.map('map').setView([lat, lng], 16);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+  L.marker([lat, lng]).addTo(map);
+
+  // In case the container is rendered in a flex layout / after paint
+  setTimeout(() => { try { map.invalidateSize(); } catch(e){} }, 60);
+</script>
+{% endblock %}
+{% block extra_head %}
+<style>
+#map{height:320px;border-radius:14px;overflow:hidden}
+video{max-height:260px;object-fit:contain}
+</style>
+{% endblock %}
