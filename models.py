@@ -138,7 +138,7 @@ class AttendanceAdjustment(Base):
     excuse_absence: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     decision_late: Mapped[str] = mapped_column(Enum('PENDING','APPROVED','REJECTED', name="late_decision_enum"), nullable=False, default='PENDING')
-    decision_early_leave: Mapped[str] = mapped_column(Enum('PENDING','APPROVED','REJECTED' name="early_leave_decision_enum"), nullable=False, default='PENDING')
+    decision_early_leave: Mapped[str] = mapped_column(Enum('PENDING','APPROVED','REJECTED', name="early_leave_decision_enum"), nullable=False, default='PENDING')
     decision_absence: Mapped[str] = mapped_column(Enum('PENDING','APPROVED','REJECTED', name="absence_decision_enum"), nullable=False, default='PENDING')
     excuse_early_leave: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     note: Mapped[str | None] = mapped_column(String(255), nullable=True)
