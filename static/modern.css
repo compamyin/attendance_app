@@ -1,0 +1,405 @@
+:root{
+  --bg:#0b1220;
+  --panel:#0f1b2e;
+  --card:#111f35;
+  --muted:#98a2b3;
+  --line: rgba(255,255,255,.08);
+  --accent:#6ea8fe;
+}
+body{ background: var(--bg); color:#e6e9ef; }
+a{ color: inherit; }
+.app{ min-height: 100vh; display:flex; }
+.sidebar{
+  width: 290px; background: linear-gradient(180deg, var(--panel), #0b1629);
+  border-left:1px solid var(--line);
+  padding: 18px 14px; position: sticky; top:0; height:100vh;
+  overflow:auto;
+}
+.brand{ display:flex; align-items:center; gap:10px; margin-bottom: 14px; }
+.logo{
+  width:40px; height:40px; border-radius: 12px;
+  background: radial-gradient(circle at 30% 30%, var(--accent), #3a5bdc);
+  display:flex; align-items:center; justify-content:center; font-weight:800;
+}
+.brand-title{ font-weight:900; }
+.muted{ color: var(--muted)!important; }
+.section-title{ font-weight:800; font-size:12px; margin: 10px 4px 6px; }
+.navbtn{
+  width:100%;
+  display:flex; align-items:center; justify-content:space-between;
+  border:1px solid var(--line);
+  background: rgba(255,255,255,.03);
+  color:#e6e9ef;
+  padding:10px 12px; border-radius: 12px;
+  margin: 8px 0;
+  text-decoration:none;
+  transition: .15s ease;
+}
+.navbtn:hover{ transform: translateY(-1px); background: rgba(255,255,255,.05); }
+.navbtn.active{ border-color: rgba(110,168,254,.55); box-shadow: 0 0 0 3px rgba(110,168,254,.12); }
+.navbtn .left{ display:flex; gap:10px; align-items:center; }
+.navbtn .hint{ color: var(--muted); font-size: 12px; }
+
+.content{ flex:1; padding: 20px; }
+.topbar{
+  display:flex; flex-wrap:wrap; gap:10px;
+  align-items:center; justify-content:space-between;
+  margin-bottom: 14px;
+}
+.search{
+  flex: 1; min-width: 260px;
+  background: rgba(255,255,255,.03);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 10px 12px;
+  display:flex; gap:10px; align-items:center;
+}
+.search input{
+  width:100%;
+  background: transparent; border:0; outline:0; color:#e6e9ef;
+}
+.pill{
+  border:1px solid var(--line);
+  background: rgba(255,255,255,.03);
+  padding: 9px 12px; border-radius: 14px;
+  display:flex; gap:10px; align-items:center;
+  color:#e6e9ef;
+}
+.panel-note{
+  border:1px solid var(--line);
+  background: rgba(255,255,255,.03);
+  padding: 12px; border-radius: 14px;
+}
+.note-title{ font-weight:900; margin-bottom:6px; }
+.note-text{ color: var(--muted); font-size:13px; }
+
+.card, .cardx, .panel, .table, .modal-content{
+  background: rgba(255,255,255,.03) !important;
+  border: 1px solid var(--line) !important;
+  color:#e6e9ef !important;
+}
+.table thead th{ color: var(--muted)!important; border-bottom:1px solid var(--line)!important; }
+.table tbody td{ border-bottom:1px solid rgba(255,255,255,.06)!important; }
+.btn{ border-radius: 14px!important; }
+.btn-primary{
+  background: rgba(110,168,254,.18)!important;
+  border-color: rgba(110,168,254,.45)!important;
+}
+.btn-outline-light, .btn-secondary{
+  background: rgba(255,255,255,.03)!important;
+  border-color: var(--line)!important;
+  color:#e6e9ef!important;
+}
+.form-control, .form-select, textarea{
+  background: rgba(255,255,255,.03)!important;
+  border: 1px solid var(--line)!important;
+  color:#e6e9ef!important;
+  border-radius: 14px!important;
+}
+.form-control::placeholder, textarea::placeholder{ color: rgba(230,233,239,.45)!important; }
+.badge{ border-radius:999px!important; }
+
+
+/* =========================
+   HIGH CONTRAST THEME FIX
+   ========================= */
+:root{
+  --bg: #060b16;
+  --panel: #0b1222;
+  --card: #0f1a30;
+  --line: rgba(255,255,255,.14);
+
+  --text: #f2f5ff;
+  --text2:#cfd7ff;
+  --muted:#aab6ff;
+
+  --accent:#4da3ff;
+  --accent2:#2b6dff;
+  --danger:#ff4d4d;
+  --ok:#4dff88;
+  --warn:#ffd24d;
+
+  --input-bg: rgba(255,255,255,.06);
+  --input-border: rgba(255,255,255,.22);
+}
+
+body{
+  background: var(--bg) !important;
+  color: var(--text) !important;
+  font-size: 16px !important;
+}
+
+.muted, .text-muted, small, .form-text{
+  color: var(--muted) !important;
+  opacity: 1 !important;
+}
+
+.panel, .cardx, .sidebar, .topbar, .modal-content{
+  background: rgba(255,255,255,.05) !important;
+  border: 1px solid var(--line) !important;
+}
+
+.form-control, .form-select, textarea{
+  background: var(--input-bg) !important;
+  border: 1px solid var(--input-border) !important;
+  color: var(--text) !important;
+}
+.form-control::placeholder, textarea::placeholder{
+  color: rgba(242,245,255,.55) !important;
+}
+
+.btn-ghost{
+  background: rgba(255,255,255,.06) !important;
+  border: 1px solid rgba(255,255,255,.18) !important;
+  color: var(--text) !important;
+}
+.btn-accent{
+  background: rgba(77,163,255,.22) !important;
+  border: 1px solid rgba(77,163,255,.55) !important;
+  color: var(--text) !important;
+}
+.btn-accent:hover{ background: rgba(77,163,255,.32) !important; }
+
+.table{
+  --bs-table-bg: transparent !important;
+  --bs-table-color: var(--text) !important;
+  --bs-table-border-color: rgba(255,255,255,.12) !important;
+}
+.table thead th{
+  color: var(--text2) !important;
+  border-bottom: 1px solid rgba(255,255,255,.20) !important;
+  font-weight: 800;
+  font-size: 14px;
+}
+.table tbody td{
+  border-bottom: 1px solid rgba(255,255,255,.10) !important;
+  font-size: 14px;
+}
+.table-hover tbody tr:hover{ background: rgba(77,163,255,.08) !important; }
+
+.badge-soft{
+  background: rgba(255,255,255,.06) !important;
+  border: 1px solid rgba(255,255,255,.18) !important;
+  color: var(--text) !important;
+}
+
+/* =========================
+   MESSAGES UI (Bubbles)
+   ========================= */
+.msg-wrap{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  max-height: 520px;
+  overflow:auto;
+  padding: 4px;
+}
+.msg-bubble{
+  max-width: 78%;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,.16);
+  color: var(--text);
+  font-weight: 600;
+  line-height: 1.5;
+}
+.msg-bubble.me{
+  background: rgba(77,163,255,.28);
+  border-color: rgba(77,163,255,.55);
+  margin-right: auto;
+}
+.msg-bubble.them{
+  background: rgba(255,255,255,.08);
+  border-color: rgba(255,255,255,.18);
+  margin-left: auto;
+}
+.msg-meta{
+  font-size: 12px;
+  color: rgba(242,245,255,.70);
+  margin-top: 6px;
+  font-weight: 500;
+}
+
+/* Scrollbar */
+*::-webkit-scrollbar{ width: 10px; height:10px; }
+*::-webkit-scrollbar-thumb{ background: rgba(255,255,255,.18); border-radius: 999px; }
+*::-webkit-scrollbar-track{ background: rgba(255,255,255,.04); }
+
+/* =========================
+   ALERTS CONTRAST
+   ========================= */
+.alert{
+  background: rgba(255,255,255,.06) !important;
+  border: 1px solid rgba(255,255,255,.18) !important;
+  color: var(--text) !important;
+}
+
+
+/* ===== FORCE HIGH CONTRAST (auto-fix) ===== */
+:root{
+  --text: #f5f7ff;
+  --text2:#e7ebff;
+  --muted:#d6dcff;
+  --line: rgba(255,255,255,.20);
+}
+.text-muted, .text-secondary, .muted, small, .form-text{
+  color: var(--muted) !important;
+  opacity: 1 !important;
+}
+.table td, .table th{
+  color: var(--text) !important;
+}
+.table thead th{
+  color: var(--text2) !important;
+}
+/* ==============================
+   FIX: Transparent inquiry / popups
+   (Payroll inquiry + HR pages)
+   ============================== */
+
+/* مهم: ممنوع opacity على حاويات عامة */
+.panel, .cardx, .content, .screen, .table-responsive, .sidebar, .topbar {
+  opacity: 1 !important;
+}
+
+/* لو في أي عنصر عليه opacity بالغلط */
+*[style*="opacity"] { opacity: 1 !important; }
+
+/* Bootstrap modal */
+.modal-content{
+  background: #0b1222 !important;
+  border: 1px solid rgba(255,255,255,.18) !important;
+  color: #f2f5ff !important;
+}
+.modal-header, .modal-footer{
+  border-color: rgba(255,255,255,.12) !important;
+}
+.modal-backdrop.show{
+  opacity: .65 !important; /* الخلفية اللي ورا المودال */
+}
+
+/* Bootstrap popover / tooltip / dropdown */
+.popover, .popover-body, .dropdown-menu{
+  background: #0b1222 !important;
+  color: #f2f5ff !important;
+  border: 1px solid rgba(255,255,255,.18) !important;
+}
+.tooltip-inner{
+  background: #0b1222 !important;
+  color: #f2f5ff !important;
+  border: 1px solid rgba(255,255,255,.18) !important;
+}
+
+/* Alerts (لو الاستفسار عبارة عن alert) */
+.alert{
+  background: rgba(11,18,34,.95) !important;
+  color: #f2f5ff !important;
+  border: 1px solid rgba(255,255,255,.18) !important;
+}
+
+/* صندوق الاستفسار/التفاصيل */
+.payroll-inquiry, .inquiry-box, .details-box, .report-box{
+  background: #0b1222 !important;
+  border: 1px solid rgba(255,255,255,.18) !important;
+  color: #f2f5ff !important;
+  opacity: 1 !important;
+}
+
+/* نصوص الجداول حتى ما تكون باهتة */
+.table, .table td, .table th{
+  color: #f2f5ff !important;
+}
+.table thead th{
+  color: #cfd7ff !important;
+}
+.text-muted, .muted, small{
+  color: rgba(242,245,255,.72) !important;
+  opacity: 1 !important;
+}
+/* =========================
+   PAYROLL TABLE FIX (Headers + Cells)
+   ========================= */
+
+/* عناوين الأعمدة تكون واضحة ومرئية */
+table thead th{
+  background: rgba(77,163,255,.18) !important; /* خلفية واضحة */
+  color: #f2f5ff !important;                  /* نص أبيض قوي */
+  font-weight: 900 !important;
+  border-bottom: 1px solid rgba(255,255,255,.22) !important;
+  opacity: 1 !important;
+}
+
+/* صفوف الجدول */
+table tbody td{
+  color: #f2f5ff !important;
+  border-bottom: 1px solid rgba(255,255,255,.10) !important;
+  opacity: 1 !important;
+}
+
+/* الصف عند المرور */
+table.table-hover tbody tr:hover{
+  background: rgba(77,163,255,.10) !important;
+}
+
+/* ممنوع يكون في شفافية عامة على حاويات الجدول */
+.table-responsive, table, thead, tbody, tr, th, td{
+  opacity: 1 !important;
+}
+
+/* لو عندك text-muted مستخدم جوّا الجدول */
+table .text-muted, table .muted, table small{
+  color: rgba(242,245,255,.80) !important;
+  opacity: 1 !important;
+}
+
+/* أزرار "تعديل يدوي" و "استفسار" داخل الجدول تكون واضحة */
+table a, table button{
+  color: #f2f5ff !important;
+}
+
+/* إذا أزرارك كانت باهتة */
+table .btn{
+  background: rgba(255,255,255,.07) !important;
+  border: 1px solid rgba(255,255,255,.18) !important;
+}
+table .btn:hover{
+  background: rgba(255,255,255,.12) !important;
+}
+/* =========================
+   HR PAYROLL: Fix invisible columns header
+   ========================= */
+
+.payroll-table{
+  background: rgba(255,255,255,.03) !important;
+  border: 1px solid rgba(255,255,255,.14) !important;
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.payroll-table thead th{
+  background: rgba(77,163,255,.22) !important; /* خلفية واضحة للعناوين */
+  color: #f2f5ff !important;                  /* نص أبيض قوي */
+  font-weight: 900 !important;
+  border-bottom: 1px solid rgba(255,255,255,.22) !important;
+  opacity: 1 !important;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.payroll-table tbody td{
+  color: rgba(242,245,255,.92) !important;
+  border-bottom: 1px solid rgba(255,255,255,.10) !important;
+  opacity: 1 !important;
+}
+
+.payroll-table.table-hover tbody tr:hover{
+  background: rgba(77,163,255,.10) !important;
+}
+
+/* إذا كان عندك text-muted جوّا خلايا الجدول */
+.payroll-table .text-muted,
+.payroll-table .muted,
+.payroll-table small{
+  color: rgba(242,245,255,.78) !important;
+  opacity: 1 !important;
+}
