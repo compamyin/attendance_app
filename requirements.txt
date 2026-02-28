@@ -1,7 +1,7 @@
 fastapi==0.115.0
 uvicorn==0.30.6
 SQLAlchemy==2.0.34
-PyMySQL==1.1.1
+psycopg2-binary==2.9.9
 python-dotenv==1.0.1
 passlib==1.7.4
 cryptography==42.0.8
