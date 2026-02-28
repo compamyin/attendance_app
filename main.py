@@ -44,7 +44,10 @@ from sqlalchemy import text
 
 import urllib.request
 import urllib.parse
+from db import engine
+from models import Base
 
+Base.metadata.create_all(bind=engine)
 
 def reverse_geocode_nominatim(lat: float, lng: float) -> tuple[str | None, str | None]:
     """Return (area_name, region_name) using OpenStreetMap Nominatim reverse API.
