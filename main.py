@@ -775,7 +775,7 @@ async def clock_api(
        .order_by(AttendanceLog.server_timestamp.asc())
        .all()
        )
-    )
+
     first_in = next((l for l in today_logs if l.action == "IN"), None)
     last_out = next((l for l in reversed(today_logs) if l.action == "OUT"), None)
 
