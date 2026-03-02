@@ -3865,8 +3865,51 @@ def hr_employee_delete(emp_id: int, request: Request, db: Session = Depends(get_
     emp = db.get(Employee, emp_id)
     if not emp:
         raise HTTPException(status_code=404, detail="Not found")
-    # delete logs first to avoid FK issues
-    db.query(AttendanceLog).filter(AttendanceLog.employee_id == emp_id).delete()
+        # Delete dependent rows first to avoid ORM trying to set employee_id = NULL
+    db.query(AttendanceEarlyLeaveSegment).filter(
+        AttendanceEarlyLeaveSegment.employee_id == emp_id
+    ).delete(synchronize_session=False)
+
+    db.query(AttendanceAdjustment).filter(
+        AttendanceAdjustment.employee_id == emp_id
+    ).delete(synchronize_session=False)
+
+    db.query(AttendanceLog).filter(
+        AttendanceLog.employee_id == emp_id
+    ).delete(synchronize_session=False)
+
+    db.query(PayrollAdjustment).filter(
+        PayrollAdjustment.employee_id == emp_id
+    ).delete(synchronize_session=False)
+
+    db.query(PayrollRecord).filter(
+        PayrollRecord.employee_id == emp_id
+    ).delete(synchronize_session=False)
+
+    db.query(SupportTicket).filter(
+        SupportTicket.employee_id == emp_id
+    ).delete(synchronize_session=False)
+
+    db.query(Ticket).filter(
+        Ticket.employee_id == emp_id
+    ).delete(synchronize_session=False)
+
+    db.query(Message).filter(
+        Message.employee_id == emp_id
+    ).delete(synchronize_session=False)
+
+    db.query(EmployeeNote).filter(
+        EmployeeNote.employee_id == emp_id
+    ).delete(synchronize_session=False)
+
+    # بعض الجداول عندك فيها sender_employee_id (اختياري)
+    db.query(EmployeeMessage).filter(
+        EmployeeMessage.employee_id == emp_id
+    ).delete(synchronize_session=False)
+    db.query(EmployeeMessage).filter(
+        EmployeeMessage.sender_employee_id == emp_id
+    ).delete(synchronize_session=False)
+
     db.delete(emp)
     db.commit()
     return RedirectResponse(url="/hr/employees", status_code=302)
