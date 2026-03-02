@@ -4298,8 +4298,7 @@ def hr_review_page(
     for emp in employees:
        for d in days:
           settings = get_or_none_daily_settings(db, d)
-          r = compute_day(db, emp, d, settings, write_db=True)
-
+          r = compute_day(db, emp, d, settings, write_db=False)
           # هات سجل الـ adjustment الخاص بهاليوم لهالموظف
           adj = (
              db.query(AttendanceAdjustment)
