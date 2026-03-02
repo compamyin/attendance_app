@@ -4257,13 +4257,18 @@ def hr_review_page(
     """
     Reviews page: show ALL pending items (late / early leave / absence) across dates.
     If date_str is provided, filter to that day only.
+
+    IMPORTANT:
+    - Payroll/report pages can show "pending" even if there is NO AttendanceAdjustment row yet
+      (decision_* == None). The review page should still list these items.
+    - We do NOT create/write anything here (read-only). Writing happens via /hr/commit/* or /hr/review/decide.
     """
     try:
         u = get_current_hr_user(request, db)
     except HTTPException:
         return RedirectResponse(url="/hr/login", status_code=302)
 
-    d_filter = None
+    d_filter: date | None = None
     if date_str:
         try:
             d_filter = date.fromisoformat(date_str.strip())
@@ -4274,60 +4279,98 @@ def hr_review_page(
     if kind_clean not in ("late", "early_leave", "absence", ""):
         kind_clean = ""
 
-        # بدل ما نعتمد على AttendanceAdjustment الموجود مسبقاً:
-    # نجيب الموظفين ونمرّ على أيام الشهر الحالي (أو يوم واحد إذا date_str موجود)
+    # Default window: current month start -> today (unless a specific day is requested)
     t = today_tz()
     month_start = date(t.year, t.month, 1)
-
     if d_filter:
         days = [d_filter]
     else:
         days = [month_start + timedelta(days=i) for i in range((t - month_start).days + 1)]
 
     employees = (
-    db.query(Employee)
-    .filter(Employee.is_active == True)
-    .order_by(Employee.employee_code.asc())
-    .all()
+        db.query(Employee)
+        .filter(Employee.is_active == True)
+        .order_by(Employee.employee_code.asc())
+        .all()
     )
-    
-    late_rows = []
-    absence_rows = []
 
-    # First pass: late + absence decisions are still per-day (AttendanceAdjustment)
+    late_rows: list[dict] = []
+    absence_rows: list[dict] = []
+
+    # Late + Absence are decided per-day (AttendanceAdjustment). If no adjustment row exists yet,
+    # treat it as PENDING so HR can see it here (matches payroll "pending" behavior).
     for emp in employees:
-       for d in days:
-          settings = get_or_none_daily_settings(db, d)
-          r = compute_day(db, emp, d, settings, write_db=False)
-          # هات سجل الـ adjustment الخاص بهاليوم لهالموظف
-          adj = (
-             db.query(AttendanceAdjustment)
-             .filter(
-             AttendanceAdjustment.employee_id == emp.id,
-             AttendanceAdjustment.day_date == d,
-            )
-            .first()
-          )
-          
-          if not adj:
-             continue    # Second pass: early leave decisions are per-segment (attendance_early_leave_segments)
-    seg_q = db.query(AttendanceEarlyLeaveSegment).join(Employee, AttendanceEarlyLeaveSegment.employee_id == Employee.id)
+        for d in days:
+            settings = get_or_none_daily_settings(db, d)
+            r = compute_day(db, emp, d, settings, write_db=False)
+            adj = r.get("adj")
+
+            # LATE (pending)
+            raw_late = int(r.get("raw_late") or 0)
+            late_decision = (r.get("decision_late") or "PENDING").upper()
+            late_excused = bool(getattr(adj, "excuse_late", False)) if adj else False
+            if raw_late > 0 and late_decision == "PENDING" and (not late_excused):
+                late_rows.append(
+                    {
+                        "emp": emp,
+                        "date": d.isoformat(),
+                        "sched_start": r.get("sched_start"),
+                        "first_in": r.get("first_in"),
+                        "minutes": raw_late,
+                        "note": getattr(adj, "note", None) if adj else None,
+                    }
+                )
+
+            # ABSENCE (pending)
+            raw_status = (r.get("raw_status") or "").upper()
+            absence_decision = (r.get("decision_absence") or "PENDING").upper()
+            absence_excused = bool(getattr(adj, "excuse_absence", False)) if adj else False
+            if raw_status == "ABSENT" and absence_decision == "PENDING" and (not absence_excused):
+                absence_rows.append(
+                    {
+                        "emp": emp,
+                        "date": d.isoformat(),
+                        "sched_start": r.get("sched_start"),
+                        "sched_end": r.get("sched_end"),
+                        "note": getattr(adj, "note", None) if adj else None,
+                    }
+                )
+
+    # Sort: newest day first, then employee_code
+    try:
+        late_rows.sort(
+            key=lambda x: (x.get("date") or "", getattr(x["emp"], "employee_code", "")),
+            reverse=True,
+        )
+        absence_rows.sort(
+            key=lambda x: (x.get("date") or "", getattr(x["emp"], "employee_code", "")),
+            reverse=True,
+        )
+    except Exception:
+        pass
+
+    # Early leave decisions are per-segment (attendance_early_leave_segments).
+    seg_q = db.query(AttendanceEarlyLeaveSegment).join(
+        Employee, AttendanceEarlyLeaveSegment.employee_id == Employee.id
+    )
     if d_filter:
         seg_q = seg_q.filter(AttendanceEarlyLeaveSegment.day_date == d_filter)
     else:
-        t = today_tz()
-        month_start = date(t.year, t.month, 1)
         seg_q = seg_q.filter(AttendanceEarlyLeaveSegment.day_date >= month_start)
         seg_q = seg_q.filter(AttendanceEarlyLeaveSegment.day_date <= t)
 
     segs = (
         seg_q.filter(AttendanceEarlyLeaveSegment.decision == "PENDING")
-        .order_by(AttendanceEarlyLeaveSegment.day_date.desc(), Employee.employee_code.asc(), AttendanceEarlyLeaveSegment.out_ts.asc())
+        .order_by(
+            AttendanceEarlyLeaveSegment.day_date.desc(),
+            Employee.employee_code.asc(),
+            AttendanceEarlyLeaveSegment.out_ts.asc(),
+        )
         .limit(800)
         .all()
     )
 
-    early_rows = []
+    early_rows: list[dict] = []
     for s in segs:
         early_rows.append(
             {
@@ -4341,6 +4384,7 @@ def hr_review_page(
                 "note": s.note,
             }
         )
+
     title = "مراجعة المخالفات"
     if kind_clean == "late":
         title = "مراجعة التأخير"
@@ -4375,7 +4419,6 @@ def hr_review_page(
             "month": f"{today_tz().year:04d}-{today_tz().month:02d}",
         },
     )
-
 @app.post("/hr/review/decide")
 def hr_review_decide(
     request: Request,
