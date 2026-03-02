@@ -765,17 +765,17 @@ async def clock_api(
 
     # Find today's first IN and last OUT (for map_url reference)
     d = today_tz()
-    logs = (
-       db.query(AttendanceLog)
-       .filter(
+    today_logs = (
+        db.query(AttendanceLog)
+        .filter(
            AttendanceLog.employee_id == emp.id,
            AttendanceLog.is_valid == True,
            AttendanceLog.day_date == d,
-    )            
-       .order_by(AttendanceLog.server_timestamp.asc())
-       .all()
-       )
-
+        )
+        .order_by(AttendanceLog.server_timestamp.asc())
+        .all()
+    )
+    
     first_in = next((l for l in today_logs if l.action == "IN"), None)
     last_out = next((l for l in reversed(today_logs) if l.action == "OUT"), None)
 
@@ -1513,17 +1513,16 @@ def compute_today_sheet(db: Session, d: date, settings: DailySettings) -> tuple[
 
     for emp in employees:
         logs = (
-            db.query(AttendanceLog)
-            .filter(
-                AttendanceLog.employee_id == emp.id,
-            AttendanceLog.is_valid == True,
-                AttendanceLog.server_timestamp >= start_dt,
-                AttendanceLog.server_timestamp < end_dt,
-            )
-            .order_by(AttendanceLog.server_timestamp.asc())
-            .all()
+           db.query(AttendanceLog)
+           .filter(
+              AttendanceLog.employee_id == emp.id,
+              AttendanceLog.is_valid == True,
+              AttendanceLog.day_date == d,
+           )
+           .order_by(AttendanceLog.server_timestamp.asc())
+           .all()
         )
-
+        
         first_in = next((x for x in logs if x.action == "IN"), None)
         last_out = next((x for x in reversed(logs) if x.action == "OUT"), None)
 
@@ -3312,18 +3311,20 @@ def hr_employee_update(
     return RedirectResponse(url=f"/hr/employees/{emp_id}", status_code=302)
 
 def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings: DailySettings | None, *, write_db: bool = False):
-    d = today_tz()
-    today_logs = (
-       db.query(AttendanceLog)
-       .filter(
-           AttendanceLog.employee_id == emp.id,
-           AttendanceLog.is_valid == True,
-           AttendanceLog.day_date == d,)
-       .order_by(AttendanceLog.server_timestamp.asc())
-       .all()
-     )
+    logs = (
+        db.query(AttendanceLog)
+        .filter(
+            AttendanceLog.employee_id == emp.id,
+            AttendanceLog.is_valid == True,
+            AttendanceLog.day_date == d,
+        )
+        .order_by(AttendanceLog.server_timestamp.asc())
+        .all()
+    )
+
     first_in = next((l for l in logs if l.action == "IN"), None)
     last_out = next((l for l in reversed(logs) if l.action == "OUT"), None)
+    
 
     in_logs = [l for l in logs if l.action == "IN"]
     out_logs = [l for l in logs if l.action == "OUT"]
