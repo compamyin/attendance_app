@@ -4288,21 +4288,23 @@ def hr_review_page(
 
     late_rows = []
     absence_rows = []
-
     # First pass: late + absence decisions are still per-day (AttendanceAdjustment)
     for emp in employees:
-    for d in days:
-        settings = get_or_none_daily_settings(db, d)
-        r = compute_day(db, emp, d, settings, write_db=True)
-
-        # هسا جيب/أنشئ adjustment من الداتا
-        adj = (
+       for d in days:
+          settings = get_or_none_daily_settings(db, d)
+          r = compute_day(db, emp, d, settings, write_db=True)
+          
+          adj = (
             db.query(AttendanceAdjustment)
-            .filter(AttendanceAdjustment.employee_id == emp.id, AttendanceAdjustment.day_date == d)
+            .filter(
+                AttendanceAdjustment.employee_id == emp.id,
+                AttendanceAdjustment.day_date == d
+            )
             .first()
-        )
-        if not adj:
-            continue
+        )  
+          
+          if not adj:
+             continue
 
         raw_late = int(r.get("raw_late") or 0)
         raw_abs = 1 if (r.get("raw_status") == "ABSENT") else 0
