@@ -4287,22 +4287,23 @@ def hr_review_page(
     employees = db.query(Employee).filter(Employee.is_active == True).order_by(Employee.employee_code.asc()).all()
 
     late_rows = []
-    absence_rows = []
-    # First pass: late + absence decisions are still per-day (AttendanceAdjustment)
-    for emp in employees:
+absence_rows = []
+
+# First pass: late + absence decisions are still per-day (AttendanceAdjustment)
+for emp in employees:
     for d in days:
         settings = get_or_none_daily_settings(db, d)
         r = compute_day(db, emp, d, settings, write_db=True)
 
+        # هات سجل الـ adjustment الخاص بهاليوم لهالموظف
         adj = (
             db.query(AttendanceAdjustment)
             .filter(
                 AttendanceAdjustment.employee_id == emp.id,
-                AttendanceAdjustment.day_date == d
+                AttendanceAdjustment.day_date == d,
             )
             .first()
         )
-
         if not adj:
             continue
 
