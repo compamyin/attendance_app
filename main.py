@@ -4284,55 +4284,34 @@ def hr_review_page(
     else:
         days = [month_start + timedelta(days=i) for i in range((t - month_start).days + 1)]
 
-    employees = db.query(Employee).filter(Employee.is_active == True).order_by(Employee.employee_code.asc()).all()
-
+    employees = (
+    db.query(Employee)
+    .filter(Employee.is_active == True)
+    .order_by(Employee.employee_code.asc())
+    .all()
+    )
+    
     late_rows = []
-absence_rows = []
+    absence_rows = []
 
-# First pass: late + absence decisions are still per-day (AttendanceAdjustment)
-for emp in employees:
-    for d in days:
-        settings = get_or_none_daily_settings(db, d)
-        r = compute_day(db, emp, d, settings, write_db=True)
+    # First pass: late + absence decisions are still per-day (AttendanceAdjustment)
+    for emp in employees:
+       for d in days:
+          settings = get_or_none_daily_settings(db, d)
+          r = compute_day(db, emp, d, settings, write_db=True)
 
-        # هات سجل الـ adjustment الخاص بهاليوم لهالموظف
-        adj = (
-            db.query(AttendanceAdjustment)
-            .filter(
-                AttendanceAdjustment.employee_id == emp.id,
-                AttendanceAdjustment.day_date == d,
+          # هات سجل الـ adjustment الخاص بهاليوم لهالموظف
+          adj = (
+             db.query(AttendanceAdjustment)
+             .filter(
+             AttendanceAdjustment.employee_id == emp.id,
+             AttendanceAdjustment.day_date == d,
             )
             .first()
-        )
-        if not adj:
-            continue
-
-        raw_late = int(r.get("raw_late") or 0)
-        raw_abs = 1 if (r.get("raw_status") == "ABSENT") else 0
-
-        if raw_late > 0 and (getattr(adj, "decision_late", None) or "PENDING") == "PENDING":
-            late_rows.append(
-                {
-                    "emp": emp,
-                    "date": d,
-                    "minutes": raw_late,
-                    "sched_start": r.get("sched_start"),
-                    "first_in": r.get("first_in"),
-                    "note": getattr(adj, "note", None),
-                }
-            )
-
-        if raw_abs > 0 and (getattr(adj, "decision_absence", None) or "PENDING") == "PENDING":
-            absence_rows.append(
-                {
-                    "emp": emp,
-                    "date": d,
-                    "sched_start": r.get("sched_start"),
-                    "sched_end": r.get("sched_end"),
-                    "note": getattr(adj, "note", None),
-                }
-            )
-    # Second pass: early leave decisions are per-segment (attendance_early_leave_segments)
+          )
+          
+          if not adj:
+             continue    # Second pass: early leave decisions are per-segment (attendance_early_leave_segments)
     seg_q = db.query(AttendanceEarlyLeaveSegment).join(Employee, AttendanceEarlyLeaveSegment.employee_id == Employee.id)
     if d_filter:
         seg_q = seg_q.filter(AttendanceEarlyLeaveSegment.day_date == d_filter)
