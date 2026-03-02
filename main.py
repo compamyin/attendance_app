@@ -7,7 +7,7 @@ from starlette.responses import RedirectResponse
 from sqlalchemy import Column, Integer, Date, DateTime, Enum, DECIMAL, Float, String
 from datetime import datetime, date, time, timedelta
 from zoneinfo import ZoneInfo
-
+from datetime import date, datetime, time, timedelta
 from fastapi import FastAPI, Request,Form,Depends, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
@@ -4274,27 +4274,36 @@ def hr_review_page(
     if kind_clean not in ("late", "early_leave", "absence", ""):
         kind_clean = ""
 
-    q = db.query(AttendanceAdjustment).join(Employee, AttendanceAdjustment.employee_id == Employee.id)
-    if d_filter:
-        q = q.filter(AttendanceAdjustment.day_date == d_filter)
-    else:
-        # الافتراضي: من أول الشهر الحالي لحد اليوم (مش كل التاريخ)
-        t = today_tz()
-        month_start = date(t.year, t.month, 1)
-        q = q.filter(AttendanceAdjustment.day_date >= month_start)
-        q = q.filter(AttendanceAdjustment.day_date <= t)
+        # بدل ما نعتمد على AttendanceAdjustment الموجود مسبقاً:
+    # نجيب الموظفين ونمرّ على أيام الشهر الحالي (أو يوم واحد إذا date_str موجود)
+    t = today_tz()
+    month_start = date(t.year, t.month, 1)
 
-    adjustments = q.order_by(AttendanceAdjustment.day_date.desc(), Employee.employee_code.asc()).limit(500).all()
+    if d_filter:
+        days = [d_filter]
+    else:
+        days = [month_start + timedelta(days=i) for i in range((t - month_start).days + 1)]
+
+    employees = db.query(Employee).filter(Employee.is_active == True).order_by(Employee.employee_code.asc()).all()
 
     late_rows = []
     absence_rows = []
 
     # First pass: late + absence decisions are still per-day (AttendanceAdjustment)
-    for adj in adjustments:
-        emp = adj.employee
-        d = adj.day_date
+    for emp in employees:
+    for d in days:
         settings = get_or_none_daily_settings(db, d)
         r = compute_day(db, emp, d, settings, write_db=True)
+
+        # هسا جيب/أنشئ adjustment من الداتا
+        adj = (
+            db.query(AttendanceAdjustment)
+            .filter(AttendanceAdjustment.employee_id == emp.id, AttendanceAdjustment.day_date == d)
+            .first()
+        )
+        if not adj:
+            continue
+
         raw_late = int(r.get("raw_late") or 0)
         raw_abs = 1 if (r.get("raw_status") == "ABSENT") else 0
 
@@ -4309,6 +4318,7 @@ def hr_review_page(
                     "note": getattr(adj, "note", None),
                 }
             )
+
         if raw_abs > 0 and (getattr(adj, "decision_absence", None) or "PENDING") == "PENDING":
             absence_rows.append(
                 {
@@ -4319,7 +4329,6 @@ def hr_review_page(
                     "note": getattr(adj, "note", None),
                 }
             )
-
     # Second pass: early leave decisions are per-segment (attendance_early_leave_segments)
     seg_q = db.query(AttendanceEarlyLeaveSegment).join(Employee, AttendanceEarlyLeaveSegment.employee_id == Employee.id)
     if d_filter:
