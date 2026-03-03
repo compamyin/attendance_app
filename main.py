@@ -3594,31 +3594,31 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
     decision_early = getattr(adj, "decision_early_leave", None) if adj else None
     decision_absence = getattr(adj, "decision_absence", None) if adj else None
 
-    # Defaults: nothing is deducted unless explicitly APPROVED.
-if raw_late_minutes > 0 and decision_late != "APPROVED":
-    late_minutes = 0
+        # Defaults: nothing is deducted unless explicitly APPROVED.
+    if raw_late_minutes > 0 and decision_late != "APPROVED":
+        late_minutes = 0
 
-# Early leave:
-# - If we have persisted segments, deduction comes from APPROVED segments.
-# - If we DON'T have persisted segments (preview mode), allow HR approval via AttendanceAdjustment.
-if raw_early_leave_minutes > 0:
-    if early_leave_segments:
-        # segment-based path already computed early_leave_minutes from APPROVED segments
-        pass
-    else:
-        if decision_early == "APPROVED":
-            early_leave_minutes = int(raw_early_leave_minutes)
-            early_leave_seconds = int(early_leave_minutes * 60)
-            if early_leave_seconds > 0:
-                h = early_leave_seconds // 3600
-                rem = early_leave_seconds % 3600
-                mm = rem // 60
-                ss = rem % 60
-                early_leave_hms = f"{h:02d}:{mm:02d}:{ss:02d}"
+    # Early leave:
+    # - If we have persisted segments, deduction comes from APPROVED segments.
+    # - If we DON'T have persisted segments (preview mode), allow HR approval via AttendanceAdjustment.
+    if raw_early_leave_minutes > 0:
+        if early_leave_segments:
+            # segment-based path already computed early_leave_minutes from APPROVED segments
+            pass
         else:
-            early_leave_minutes = 0
-            early_leave_seconds = 0
-            early_leave_hms = None
+            if decision_early == "APPROVED":
+                early_leave_minutes = int(raw_early_leave_minutes)
+                early_leave_seconds = int(early_leave_minutes * 60)
+                if early_leave_seconds > 0:
+                    h = early_leave_seconds // 3600
+                    rem = early_leave_seconds % 3600
+                    mm = rem // 60
+                    ss = rem % 60
+                    early_leave_hms = f"{h:02d}:{mm:02d}:{ss:02d}"
+            else:
+                early_leave_minutes = 0
+                early_leave_seconds = 0
+                early_leave_hms = None
 
     if raw_status == "ABSENT":
         if decision_absence == "APPROVED":
@@ -3638,40 +3638,39 @@ if raw_early_leave_minutes > 0:
             early_leave_hms = None
         if adj.excuse_absence and raw_status == "ABSENT":
             status = "EXCUSED"
-     
-    return {
-          "date": d,
-          "emp": emp,
-          "status": status,
-          "sched_start": datetime.combine(d, work_start) if work_start else None,
-          "sched_end": datetime.combine(d, work_end) if work_end else None,
-          "first_in": _as_naive(first_in.server_timestamp) if first_in else None,
-          "first_in_log": first_in,
-          "last_out": _as_naive(last_out.server_timestamp) if last_out else None,
-          "last_out_log": last_out,
-          "late": late_minutes,
-          "raw_late": raw_late_minutes,
-          "raw_early_leave": raw_early_leave_minutes,
-          "raw_status": raw_status,
-          "decision_late": decision_late,
-          "decision_early_leave": decision_early,
-          "decision_absence": decision_absence,
-          "early_leave": early_leave_minutes,
-          "early_leave_seconds": early_leave_seconds,
-          "early_leave_hms": early_leave_hms,
-          "in_count": in_count,
-          "out_count": out_count,
-          "sessions": sessions,
-          "early_leave_segments": early_leave_segments,
-          "overtime": overtime_minutes,
-          "work_minutes": work_minutes,
-          "work_duration": (f"{(work_minutes or 0)//60:02d}:{(work_minutes or 0)%60:02d}" if work_minutes is not None else None),
-          "area": area,
-          "region": region,
-          "map_url": map_url,
-          "adj": adj,
-          }
 
+    return {
+        "date": d,
+        "emp": emp,
+        "status": status,
+        "sched_start": datetime.combine(d, work_start) if work_start else None,
+        "sched_end": datetime.combine(d, work_end) if work_end else None,
+        "first_in": _as_naive(first_in.server_timestamp) if first_in else None,
+        "first_in_log": first_in,
+        "last_out": _as_naive(last_out.server_timestamp) if last_out else None,
+        "last_out_log": last_out,
+        "late": late_minutes,
+        "raw_late": raw_late_minutes,
+        "raw_early_leave": raw_early_leave_minutes,
+        "raw_status": raw_status,
+        "decision_late": decision_late,
+        "decision_early_leave": decision_early,
+        "decision_absence": decision_absence,
+        "early_leave": early_leave_minutes,
+        "early_leave_seconds": early_leave_seconds,
+        "early_leave_hms": early_leave_hms,
+        "in_count": in_count,
+        "out_count": out_count,
+        "sessions": sessions,
+        "early_leave_segments": early_leave_segments,
+        "overtime": overtime_minutes,
+        "work_minutes": work_minutes,
+        "work_duration": (f"{(work_minutes or 0)//60:02d}:{(work_minutes or 0)%60:02d}" if work_minutes is not None else None),
+        "area": area,
+        "region": region,
+        "map_url": map_url,
+        "adj": adj,
+    }
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Single source of truth for calculations
