@@ -129,19 +129,19 @@
     document.getElementById("camBox").style.display = show ? "flex" : "none";
   }
 
-  async function getStream(){
-     if (stream) return stream;
+async function getStream(){
+  if (stream) return stream;
 
-     stream = await navigator.mediaDevices.getUserMedia({
-     video: { facingMode: { ideal: facing } },
-     audio: false
-     });
+  stream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: { ideal: facing } },
+    audio: false
+  });
 
-     const v = document.getElementById("camVideo");
-     v.srcObject = stream;
-     await v.play();
-     return stream;
-     }
+  const v = document.getElementById("camVideo");
+  v.srcObject = stream;
+  await v.play();
+  return stream;
+  }
 function stopStream(){
   if(stream){
     stream.getTracks().forEach(t => t.stop());
