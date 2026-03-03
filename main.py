@@ -4388,7 +4388,6 @@ def hr_review_page(
         .all()
     )
 
-    early_rows: list[dict] = []
     for s in segs:
         early_rows.append(
             {
