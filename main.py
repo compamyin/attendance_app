@@ -283,10 +283,23 @@ def today_tz() -> date:
 
 
 def _as_naive(dt: datetime | None) -> datetime | None:
-    """Ensure datetime is naive (strip tzinfo) for safe comparisons with MySQL naive timestamps."""
+    """
+    Normalize timestamps for comparisons:
+    - If dt has tzinfo: convert to app timezone, drop tzinfo.
+    - If dt is naive: assume it's stored in UTC (common on servers), convert to app timezone, drop tzinfo.
+    """
     if dt is None:
         return None
-    return dt.replace(tzinfo=None)
+
+    try:
+        if dt.tzinfo is not None:
+            return dt.astimezone(tz()).replace(tzinfo=None)
+
+        # naive => assume UTC then convert to local
+        return dt.replace(tzinfo=ZoneInfo("UTC")).astimezone(tz()).replace(tzinfo=None)
+    except Exception:
+        # fallback: old behavior
+        return dt.replace(tzinfo=None)
 
 
 def _ceil_minutes(delta_seconds: int) -> int:
@@ -746,6 +759,7 @@ async def clock_api(
         employee_id=emp.id,
         action=action,
         day_date=today_tz(),  # ✅ هذا المهم
+        server_timestamp=now_tz().replace(tzinfo=None),
         lat=lat,
         lng=lng,
         accuracy_m=accuracy_m,
