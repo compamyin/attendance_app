@@ -283,24 +283,10 @@ def today_tz() -> date:
 
 
 def _as_naive(dt: datetime | None) -> datetime | None:
-    """
-    Normalize timestamps for comparisons:
-    - If dt has tzinfo: convert to app timezone, drop tzinfo.
-    - If dt is naive: assume it's stored in UTC (common on servers), convert to app timezone, drop tzinfo.
-    """
+    # خليه فقط يشيل tzinfo بدون أي تحويل ساعات
     if dt is None:
         return None
-
-    try:
-        if dt.tzinfo is not None:
-            return dt.astimezone(tz()).replace(tzinfo=None)
-
-        # naive => assume UTC then convert to local
-        return dt.replace(tzinfo=ZoneInfo("UTC")).astimezone(tz()).replace(tzinfo=None)
-    except Exception:
-        # fallback: old behavior
-        return dt.replace(tzinfo=None)
-
+    return dt.replace(tzinfo=None)
 
 def _ceil_minutes(delta_seconds: int) -> int:
     if delta_seconds <= 0:
