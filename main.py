@@ -1039,15 +1039,14 @@ def me_messages_send(
 
 
 def _hr_nav_counts(db: Session) -> dict:
-    # unread messages from employees
     unread_msgs = db.query(Message).filter(Message.direction == "EMP_TO_HR", Message.is_read == False).count()
     open_tickets = db.query(SupportTicket).filter(SupportTicket.status.in_(["OPEN", "IN_PROGRESS"])).count()
-    pending_adj = db.query(AttendanceAdjustment).filter(
-        (AttendanceAdjustment.decision_late == "PENDING")
-        | (AttendanceAdjustment.decision_early_leave == "PENDING")
-        | (AttendanceAdjustment.decision_absence == "PENDING")
-    ).count()
-    return {"unread_msgs": unread_msgs, "open_tickets": open_tickets, "pending_adj": pending_adj}
+
+    pending_adj = db.query(AttendanceAdjustment).filter((AttendanceAdjustment.decision_late == "PENDING") | (AttendanceAdjustment.decision_early_leave == "PENDING") | (AttendanceAdjustment.decision_absence == "PENDING")).count()
+
+    pending_early = db.query(AttendanceEarlyLeaveSegment).filter(AttendanceEarlyLeaveSegment.decision == "PENDING").count()
+
+    return {"unread_msgs": unread_msgs, "open_tickets": open_tickets, "pending_adj": (pending_adj + pending_early)}
 
 
 @app.get("/hr/messages", response_class=HTMLResponse)
@@ -4303,8 +4302,11 @@ def hr_review_page(
         for d in days:
             settings = get_or_none_daily_settings(db, d)
             r = compute_day(db, emp, d, settings, write_db=False)
+            # ✅ Skip days with no schedule configured (prevents fake ABSENT on non-working days)
+            if not r.get("sched_start") and not r.get("sched_end"):
+                  continue
             adj = r.get("adj")
-
+            
             # LATE (pending)
             raw_late = int(r.get("raw_late") or 0)
             late_decision = (r.get("decision_late") or "PENDING").upper()
