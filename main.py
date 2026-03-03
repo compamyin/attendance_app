@@ -3353,7 +3353,7 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
             duration_min = None
 
         sessions.append({"in": i_log, "out": out_log, "duration_sec": duration_sec, "duration_min": duration_min})
-
+    
 
     if settings and settings.is_holiday:
         return {
@@ -4295,7 +4295,7 @@ def hr_review_page(
 
     late_rows: list[dict] = []
     absence_rows: list[dict] = []
-
+    early_rows: list[dict] = []
     # Late + Absence are decided per-day (AttendanceAdjustment). If no adjustment row exists yet,
     # treat it as PENDING so HR can see it here (matches payroll "pending" behavior).
     for emp in employees:
@@ -4307,6 +4307,22 @@ def hr_review_page(
                   continue
             adj = r.get("adj")
             
+            # EARLY LEAVE (pending) - show from computed raw minutes (no DB segments needed)
+            raw_early = int(r.get("raw_early_leave") or 0)
+            early_decision = (r.get("decision_early_leave") or "PENDING").upper()
+            early_excused = bool(getattr(adj, "excuse_early_leave", False)) if adj else False
+            
+            if raw_early > 0 and early_decision == "PENDING" and (not early_excused):
+              early_rows.append(
+             {
+            "emp": emp,
+            "date": d.isoformat(),
+            "out_ts": r.get("last_out"),      # وقت آخر خروج
+            "end_ts": r.get("sched_end"),     # نهاية الدوام
+            "minutes": raw_early,
+            "note": getattr(adj, "note", None) if adj else None,
+              }
+             )
             # LATE (pending)
             raw_late = int(r.get("raw_late") or 0)
             late_decision = (r.get("decision_late") or "PENDING").upper()
