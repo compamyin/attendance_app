@@ -48,7 +48,44 @@ from db import engine
 from models import Base
 
 Base.metadata.create_all(bind=engine)
+def cleanup_old_videos(db: Session, days: int = 7) -> int:
+    """Delete video files + clear video_path for logs older than `days` days."""
+    cutoff = (now_tz() - timedelta(days=days)).replace(tzinfo=None)
 
+    old_logs = (
+        db.query(AttendanceLog)
+        .filter(
+            AttendanceLog.video_path.isnot(None),
+            AttendanceLog.video_path != "",
+            AttendanceLog.server_timestamp < cutoff,
+        )
+        .limit(500)  # دفعات حتى ما يعمل ضغط
+        .all()
+    )
+
+    deleted = 0
+    for log in old_logs:
+        try:
+            vp = (log.video_path or "").lstrip("/")
+            # يتعامل مع paths مثل "media/videos/..." أو "videos/..."
+            if vp.startswith("media/"):
+                rel = vp.replace("media/", "", 1)
+                fpath = (MEDIA_DIR / rel).resolve()
+            else:
+                fpath = (BASE_DIR / vp).resolve()
+
+            if fpath.exists() and fpath.is_file():
+                fpath.unlink(missing_ok=True)
+        except Exception:
+            pass
+
+        # أهم شيء: ما نخلي HR يشوفه بعد الأسبوع
+        log.video_path = None
+        deleted += 1
+
+    if deleted:
+        db.commit()
+    return deleted
 def reverse_geocode_nominatim(lat: float, lng: float) -> tuple[str | None, str | None]:
     """Return (area_name, region_name) using OpenStreetMap Nominatim reverse API.
     Best-effort; returns (None, None) on failure. Stores short strings.
@@ -654,7 +691,8 @@ async def clock_api(
     video: UploadFile | None = File(None),
     db: Session = Depends(get_db),
 ):
-    emp = get_current_employee(request, db)
+    # keep videos only 7 days (HR verification window)
+    cleanup_old_videos(db, days=7)
 
     action = action.upper().strip()
     if action not in ("IN", "OUT"):
@@ -734,8 +772,8 @@ async def clock_api(
         fname = f"{emp.employee_code}_{action}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}{ext}"
         out_path = VIDEOS_DIR / fname
         content = await video.read()
-        if len(content) > 20 * 1024 * 1024:
-            raise HTTPException(status_code=400, detail="حجم الفيديو كبير جداً (الحد 20MB).")
+        if len(content) > 80 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail="حجم الفيديو كبير جداً (الحد 80MB).")
         out_path.write_bytes(content)
         media_rel_path = str(out_path.relative_to(MEDIA_DIR)).replace("\\", "/")
     ua = request.headers.get("user-agent")
