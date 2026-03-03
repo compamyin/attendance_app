@@ -146,7 +146,9 @@
                         <input type="hidden" name="kind" value="early_leave">
                         <input type="hidden" name="date_str" value="{{ r.date }}">
                         <input type="hidden" name="emp_id" value="{{ r.emp.id }}">
+                        {% if r.seg is defined and r.seg %}
                         <input type="hidden" name="segment_id" value="{{ r.seg.id }}">
+                        {% endif %}
                         <input type="hidden" name="decision" value="APPROVED">
                         <button class="btn btn-success btn-sm">OK</button>
                       </form>
@@ -155,7 +157,9 @@
                         <input type="hidden" name="kind" value="early_leave">
                         <input type="hidden" name="date_str" value="{{ r.date }}">
                         <input type="hidden" name="emp_id" value="{{ r.emp.id }}">
+                        {% if r.seg is defined and r.seg %}
                         <input type="hidden" name="segment_id" value="{{ r.seg.id }}">
+                        {% endif %}
                         <input type="hidden" name="decision" value="REJECTED">
                         <button class="btn btn-outline-light btn-sm">رفض</button>
                       </form>
