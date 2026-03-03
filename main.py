@@ -3557,12 +3557,30 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
     decision_absence = getattr(adj, "decision_absence", None) if adj else None
 
     # Defaults: nothing is deducted unless explicitly APPROVED.
-    if raw_late_minutes > 0 and decision_late != "APPROVED":
-        late_minutes = 0
-    if raw_early_leave_minutes > 0 and (not early_leave_segments) and decision_early != "APPROVED":
-        early_leave_minutes = 0
-        early_leave_seconds = 0
-        early_leave_hms = None
+if raw_late_minutes > 0 and decision_late != "APPROVED":
+    late_minutes = 0
+
+# Early leave:
+# - If we have persisted segments, deduction comes from APPROVED segments.
+# - If we DON'T have persisted segments (preview mode), allow HR approval via AttendanceAdjustment.
+if raw_early_leave_minutes > 0:
+    if early_leave_segments:
+        # segment-based path already computed early_leave_minutes from APPROVED segments
+        pass
+    else:
+        if decision_early == "APPROVED":
+            early_leave_minutes = int(raw_early_leave_minutes)
+            early_leave_seconds = int(early_leave_minutes * 60)
+            if early_leave_seconds > 0:
+                h = early_leave_seconds // 3600
+                rem = early_leave_seconds % 3600
+                mm = rem // 60
+                ss = rem % 60
+                early_leave_hms = f"{h:02d}:{mm:02d}:{ss:02d}"
+        else:
+            early_leave_minutes = 0
+            early_leave_seconds = 0
+            early_leave_hms = None
 
     if raw_status == "ABSENT":
         if decision_absence == "APPROVED":
