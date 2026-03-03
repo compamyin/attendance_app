@@ -38,8 +38,8 @@
 
   <div class="card shadow-sm mb-3">
     <div class="card-body">
-      <div class="text-secondary mb-2"> دخول = 5 ثواني | خروج = 60 ثانية — وبعدها يتم التسجيل تلقائيًا.</div>
-      <div class="d-flex gap-2">
+      <div class="text-secondary mb-2"> دخول = 5 ثواني | خروج = 60 ثانية — وبعدها يتم التسجيل تلقائي.</div>
+        <div class="d-flex gap-2">
         <button class="btn btn-success w-50" id="btnIn" onclick="startFlow('IN')">تسجيل دخول</button>
         <button class="btn btn-danger w-50" id="btnOut" onclick="startFlow('OUT')">تسجيل خروج</button>
       </div>
@@ -60,11 +60,12 @@
 <div id="camBox">
   <div id="camInner" class="shadow">
     <div class="d-flex justify-content-between align-items-center mb-2">
-       <div class="text-white fw-bold" id="camTitle">الكاميرا</div>
-       <div class="d-flex gap-2">
-       <button class="btn btn-sm btn-outline-light" type="button" onclick="flipCam()">تبديل</button>
-       <button class="btn btn-sm btn-outline-light" type="button" onclick="cancelCam()">إلغاء</button>
-     </div>
+  <div class="text-white fw-bold" id="camTitle">الكاميرا</div>
+  <div class="d-flex gap-2">
+    <button class="btn btn-sm btn-outline-light" type="button" onclick="flipCam()">تبديل</button>
+    <button class="btn btn-sm btn-outline-light" type="button" onclick="cancelCam()">إلغاء</button>
+  </div>
+</div>
 </div>
     <video id="camVideo" autoplay muted playsinline></video>
     <div class="small text-white-50 mt-2" id="camStatus">جاري التحضير...</div>
@@ -128,56 +129,62 @@
   }
 
   async function getStream(){
-     if(stream) return stream;
+    if(stream) return stream;
 
      stream = await navigator.mediaDevices.getUserMedia({
-     video: { facingMode: { ideal: facing } },
-     audio: false});
+       video: { facingMode: { ideal: facing } },
+       audio: false
+       });
 
      const v = document.getElementById("camVideo");
      v.srcObject = stream;
      await v.play();
-     return stream;}
+     return stream;
+     }
 
-  function stopStream(){
-    if(stream){
-      stream.getTracks().forEach(t => t.stop());
-      stream = null;
-    }
+function stopStream(){
+  if(stream){
+    stream.getTracks().forEach(t => t.stop());
+    stream = null;
   }
-  async function flipCam(){
-    facing = (facing === "user") ? "environment" : "user";
-    stopStream();
-    await getStream();
-    }
-  async function recordVideo(durationMs){
-    chunks = [];
-    const s = await getStream();
-    
-    // Choose best supported mime
-    let mime = "";
-    if (MediaRecorder.isTypeSupported("video/webm;codecs=vp9")) mime = "video/webm;codecs=vp9";
-    else if (MediaRecorder.isTypeSupported("video/webm;codecs=vp8")) mime = "video/webm;codecs=vp8";
-    else if (MediaRecorder.isTypeSupported("video/webm")) mime = "video/webm";
-    
-    // مهم لتخفيف الحجم خصوصاً مع 60 ثانية
-    recorder = new MediaRecorder(s,mime ? { mimeType: mime, videoBitsPerSecond: 500000 } : { videoBitsPerSecond: 500000 });
+}
 
-    recorder.ondataavailable = (e) => {if(e.data && e.data.size > 0) chunks.push(e.data);};
+async function flipCam(){
+  facing = (facing === "user") ? "environment" : "user";
+  stopStream();
+  await getStream();
+}
 
-    const done = new Promise((resolve, reject) => {
+async function recordVideo(durationMs){
+  chunks = [];
+  const s = await getStream();
+
+  let mime = "";
+  if (MediaRecorder.isTypeSupported("video/webm;codecs=vp9")) mime = "video/webm;codecs=vp9";
+  else if (MediaRecorder.isTypeSupported("video/webm;codecs=vp8")) mime = "video/webm;codecs=vp8";
+  else if (MediaRecorder.isTypeSupported("video/webm")) mime = "video/webm";
+
+  recorder = new MediaRecorder(
+    s,
+    mime ? { mimeType: mime, videoBitsPerSecond: 500000 } : { videoBitsPerSecond: 500000 }
+  );
+
+  recorder.ondataavailable = (e) => {
+    if(e.data && e.data.size > 0) chunks.push(e.data);
+  };
+
+  const done = new Promise((resolve, reject) => {
     recorder.onstop = () => resolve(true);
     recorder.onerror = (e) => reject(e);
-    });
+  });
 
-    recorder.start();
-    await new Promise(r => setTimeout(r, durationMs));
-    recorder.stop();
-    await done;
+  recorder.start();
+  await new Promise(r => setTimeout(r, durationMs));
+  recorder.stop();
+  await done;
 
-    const blob = new Blob(chunks, { type: recorder.mimeType || "video/webm" });
-    return blob;
-    }
+  return new Blob(chunks, { type: recorder.mimeType || "video/webm" });
+}
   async function submitAction(action){
     if(lastActionInFlight) return;
     lastActionInFlight = true;
@@ -202,10 +209,10 @@
       showCam(true);
       await getStream();
 
+      
       const durationMs = (action === "OUT") ? 60000 : 5000;
       msgBox(`جاري تسجيل فيديو إثبات (${action === "OUT" ? "60 ثانية" : "5 ثواني"})...`, "alert alert-secondary");
       const blob = await recordVideo(durationMs);
-
       showCam(false);
       stopStream();
 
