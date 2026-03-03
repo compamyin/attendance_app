@@ -3638,8 +3638,8 @@ if raw_early_leave_minutes > 0:
             early_leave_hms = None
         if adj.excuse_absence and raw_status == "ABSENT":
             status = "EXCUSED"
-
-        return {
+     
+    return {
           "date": d,
           "emp": emp,
           "status": status,
@@ -3729,7 +3729,7 @@ def compute_month(
     settings: DailySettings,
     *,
     upto: date | None = None,
-):
+    ):
     """Return (summary, breakdown) for payroll month using the unified day result."""
     return _compute_payroll_for_month(db, emp, year, month, settings, upto=upto)
 
