@@ -3639,7 +3639,7 @@ if raw_early_leave_minutes > 0:
         if adj.excuse_absence and raw_status == "ABSENT":
             status = "EXCUSED"
 
-    return {
+       return {
         "date": d,
         "emp": emp,
         "status": status,
