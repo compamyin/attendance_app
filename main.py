@@ -4368,18 +4368,18 @@ def hr_review_page(
             early_excused = bool(getattr(adj, "excuse_early_leave", False)) if adj else False
             
             if raw_early > 0 and early_decision == "PENDING" and (not early_excused):
-              early_rows.append(
-             {
-            "emp": emp,
-            "date": d.isoformat(),
-            "out_ts": r.get("last_out"),      # وقت آخر خروج
-            "end_ts": r.get("sched_end"),     # نهاية الدوام
-            "minutes": raw_early,
-            "note": getattr(adj, "note", None) if adj else None,
-            "in_log": r.get("first_in_log"),
-            "out_log": r.get("last_out_log"), 
-              }
-             )
+               early_rows.append(
+               {
+               "emp": emp,
+               "date": d.isoformat(),
+               "out_ts": r.get("last_out"),      # وقت آخر خروج
+               "end_ts": r.get("sched_end"),     # نهاية الدوام
+               "minutes": raw_early,
+               "note": getattr(adj, "note", None) if adj else None,
+               "in_log": r.get("first_in_log"),
+               "out_log": r.get("last_out_log"), 
+               }
+               )
             # LATE (pending)
             raw_late = int(r.get("raw_late") or 0)
             late_decision = (r.get("decision_late") or "PENDING").upper()
@@ -4451,6 +4451,7 @@ def hr_review_page(
 
     for s in segs:
        settings = get_or_none_daily_settings(db, s.day_date)
+
        rr = compute_day(db, s.employee, s.day_date, settings, write_db=False)
        
        early_rows.append(
