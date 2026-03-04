@@ -4450,10 +4450,10 @@ def hr_review_page(
     )
 
     for s in segs:
-    settings = get_or_none_daily_settings(db, s.day_date)
-    rr = compute_day(db, s.employee, s.day_date, settings, write_db=False)
-
-    early_rows.append(
+       settings = get_or_none_daily_settings(db, s.day_date)
+       rr = compute_day(db, s.employee, s.day_date, settings, write_db=False)
+       
+       early_rows.append(
         {
             "seg": s,
             "emp": s.employee,
