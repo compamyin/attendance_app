@@ -49,12 +49,13 @@
                   <th>أول دخول</th>
                   <th class="text-end">الدقائق</th>
                   <th>ملاحظة</th>
+                  <th>فيديو</th>
                   <th class="text-end">إجراء</th>
                 </tr>
               </thead>
               <tbody>
                 {% if not late_rows %}
-                  <tr><td colspan="7" class="text-muted">لا يوجد مراجعات تأخير حالياً.</td></tr>
+                  <tr><td colspan="8" class="text-muted">لا يوجد مراجعات تأخير حالياً.</td></tr>
                 {% endif %}
                 {% for r in late_rows %}
                   <tr>
@@ -70,6 +71,19 @@
                     <td class="text-muted" style="max-width: 240px; white-space: normal;">
                       {{ r.note or "-" }}
                     </td>
+                    <td class="text-nowrap">
+  {% if r.in_log and r.in_log.video_path %}
+    <a class="btn btn-sm btn-outline-success" target="_blank" href="/hr/log/{{ r.in_log.id }}">IN</a>
+  {% else %}
+    <span class="text-muted">—</span>
+  {% endif %}
+
+  {% if r.out_log and r.out_log.video_path %}
+    <a class="btn btn-sm btn-outline-danger" target="_blank" href="/hr/log/{{ r.out_log.id }}">OUT</a>
+  {% else %}
+    <span class="text-muted">—</span>
+  {% endif %}
+</td>
                     <td class="text-end">
                       <form method="post" action="/hr/review/decide" class="d-inline">
                         <input type="hidden" name="back" value="{{ back_url }}">
@@ -115,12 +129,13 @@
                   <th>إلى</th>
                   <th class="text-end">الدقائق</th>
                   <th>ملاحظة</th>
+                  <th>فيديو</th>
                   <th class="text-end">إجراء</th>
                 </tr>
               </thead>
               <tbody>
                 {% if not early_rows %}
-                  <tr><td colspan="7" class="text-muted">لا يوجد مراجعات مغادرة حالياً.</td></tr>
+                  <tr><td colspan="8" class="text-muted">لا يوجد مراجعات مغادرة حالياً.</td></tr>
                 {% endif %}
                 {% for r in early_rows %}
                   <tr>
@@ -187,12 +202,13 @@
                   <th>بداية الدوام</th>
                   <th>نهاية الدوام</th>
                   <th>ملاحظة</th>
+                  <th>فيديو</th>
                   <th class="text-end">إجراء</th>
                 </tr>
               </thead>
               <tbody>
                 {% if not absence_rows %}
-                  <tr><td colspan="6" class="text-muted">لا يوجد مراجعات غياب حالياً.</td></tr>
+                  <tr><td colspan="7" class="text-muted">لا يوجد مراجعات غياب حالياً.</td></tr>
                 {% endif %}
                 {% for r in absence_rows %}
                   <tr>
