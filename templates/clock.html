@@ -63,6 +63,7 @@
       <div class="text-white fw-bold" id="camTitle">الكاميرا</div>
       <div class="d-flex gap-2">
         <button class="btn btn-sm btn-outline-light" type="button" onclick="flipCam()">تبديل</button>
+        <button class="btn btn-sm btn-warning" type="button" id="btnFinish" onclick="finishRecording()" disabled>إنهاء</button>
         <button class="btn btn-sm btn-outline-light" type="button" onclick="cancelCam()">إلغاء</button>
       </div>
     </div>
@@ -161,38 +162,69 @@
     stopStream();
     await getStream();
   }
+  let recordingTimeout = null;
 
-  async function recordVideo(durationMs){
-    chunks = [];
-    const s = await getStream();
+function setFinishEnabled(on){
+  const b = document.getElementById("btnFinish");
+  if(b) b.disabled = !on;
+}
 
-    let mime = "";
-    if (MediaRecorder.isTypeSupported("video/webm;codecs=vp9")) mime = "video/webm;codecs=vp9";
-    else if (MediaRecorder.isTypeSupported("video/webm;codecs=vp8")) mime = "video/webm;codecs=vp8";
-    else if (MediaRecorder.isTypeSupported("video/webm")) mime = "video/webm";
+function finishRecording(){
+  try{
+    if(recordingTimeout){
+      clearTimeout(recordingTimeout);
+      recordingTimeout = null;
+    }
+    if(recorder && recorder.state === "recording"){
+      recorder.stop(); // هذا يوقف التسجيل ويروح يكمل إرسال طبيعي
+    }
+  }catch(e){
+    console.error(e);
+  }
+}
+async function recordVideo(durationMs){
+  chunks = [];
+  const s = await getStream();
 
-    recorder = new MediaRecorder(
-      s,
-      mime ? { mimeType: mime, videoBitsPerSecond: 500000 } : { videoBitsPerSecond: 500000 }
-    );
+  let mime = "";
+  if (MediaRecorder.isTypeSupported("video/webm;codecs=vp9")) mime = "video/webm;codecs=vp9";
+  else if (MediaRecorder.isTypeSupported("video/webm;codecs=vp8")) mime = "video/webm;codecs=vp8";
+  else if (MediaRecorder.isTypeSupported("video/webm")) mime = "video/webm";
 
-    recorder.ondataavailable = (e) => {
-      if(e.data && e.data.size > 0) chunks.push(e.data);
-    };
+  recorder = new MediaRecorder(
+    s,
+    mime ? { mimeType: mime, videoBitsPerSecond: 500000 } : { videoBitsPerSecond: 500000 }
+  );
 
-    const done = new Promise((resolve, reject) => {
-      recorder.onstop = () => resolve(true);
-      recorder.onerror = (e) => reject(e);
-    });
+  recorder.ondataavailable = (e) => {
+    if(e.data && e.data.size > 0) chunks.push(e.data);
+  };
 
-    recorder.start();
-    await new Promise(r => setTimeout(r, durationMs));
-    recorder.stop();
-    await done;
+  const done = new Promise((resolve, reject) => {
+    recorder.onstop = () => resolve(true);
+    recorder.onerror = (e) => reject(e);
+  });
 
-    return new Blob(chunks, { type: recorder.mimeType || "video/webm" });
+  setFinishEnabled(true);        // ✅ فعّل زر إنهاء
+  recorder.start();
+
+  // ✅ وقف تلقائي بعد المدة (إذا ما كبس إنهاء)
+  recordingTimeout = setTimeout(() => {
+    if(recorder && recorder.state === "recording"){
+      recorder.stop();
+    }
+  }, durationMs);
+
+  await done;
+
+  setFinishEnabled(false);       // ✅ عطّل زر إنهاء بعد التوقف
+  if(recordingTimeout){
+    clearTimeout(recordingTimeout);
+    recordingTimeout = null;
   }
 
+  return new Blob(chunks, { type: recorder.mimeType || "video/webm" });
+}
   async function submitAction(action){
     if(lastActionInFlight) return;
     lastActionInFlight = true;
@@ -232,8 +264,7 @@
       fd.append("accuracy_m", lastPos.accuracy);
 
       const ext = (blob.type && blob.type.includes("mp4")) ? "mp4" : "webm";
-      fd.append("video", blob, `proof.${ext}`);
-
+      fd.append("video", blob, `${action}_${Date.now()}.${ext}`);
       const resp = await fetch("/api/clock", { method: "POST", body: fd });
       if(!resp.ok){
         const data = await resp.json().catch(()=>({detail:"حدث خطأ"}));
