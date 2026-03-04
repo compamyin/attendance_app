@@ -690,10 +690,10 @@ async def clock_api(
     request_id: str | None = Form(None),
     video: UploadFile | None = File(None),
     db: Session = Depends(get_db),
-):
+    ):
     # keep videos only 7 days (HR verification window)
     cleanup_old_videos(db, days=7)
-
+    emp = get_current_employee(request, db)
     action = action.upper().strip()
     if action not in ("IN", "OUT"):
         raise HTTPException(status_code=400, detail="Invalid action")
