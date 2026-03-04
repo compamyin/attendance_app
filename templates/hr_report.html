@@ -647,14 +647,30 @@
                   {% endif %}
                 </td>
                 <td>
-                  {% if s.in and s.in.video_path %}
-                    <a target="_blank" href="/media/{{ s.in.video_path | replace('media/','') }}">IN</a>
-                  {% endif %}
-                  {% if s.out and s.out.video_path %}
-                    <span class="mx-1">|</span>
-                    <a target="_blank" href="/media/{{ s.out.video_path | replace('media/','') }}">OUT</a>
-                  {% endif %}
-                </td>
+  {% if s.in and s.in.video_path %}
+    {% set p = s.in.video_path %}
+    <a class="btn btn-sm btn-success" target="_blank"
+       href="/media/{{ p if p.startswith('videos/') else p|replace('media/','') }}">
+      IN
+    </a>
+  {% endif %}
+
+  {% if s.out and s.out.video_path %}
+    {% set p2 = s.out.video_path %}
+    <span class="mx-1">|</span>
+    <a class="btn btn-sm btn-danger" target="_blank"
+       href="/media/{{ p2 if p2.startswith('videos/') else p2|replace('media/','') }}">
+      OUT
+    </a>
+  {% endif %}
+</td>
+
+
+
+
+
+
+ 
               </tr>
             {% endfor %}
             {% if (r.sessions or [])|length == 0 %}
