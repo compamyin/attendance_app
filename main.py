@@ -4376,6 +4376,8 @@ def hr_review_page(
             "end_ts": r.get("sched_end"),     # نهاية الدوام
             "minutes": raw_early,
             "note": getattr(adj, "note", None) if adj else None,
+            "in_log": r.get("first_in_log"),
+            "out_log": r.get("last_out_log"), 
               }
              )
             # LATE (pending)
@@ -4385,29 +4387,33 @@ def hr_review_page(
             if raw_late > 0 and late_decision == "PENDING" and (not late_excused):
                 late_rows.append(
                     {
-                        "emp": emp,
-                        "date": d.isoformat(),
-                        "sched_start": r.get("sched_start"),
-                        "first_in": r.get("first_in"),
-                        "minutes": raw_late,
-                        "note": getattr(adj, "note", None) if adj else None,
-                    }
-                )
+                    "emp": emp,
+                    "date": d.isoformat(),
+                    "sched_start": r.get("sched_start"),
+                    "first_in": r.get("first_in"),
+                    "minutes": raw_late,
+                    "note": getattr(adj, "note", None) if adj else None,
+                    "in_log": r.get("first_in_log"),
+                    "out_log": r.get("last_out_log"),
+    }
+)
 
             # ABSENCE (pending)
             raw_status = (r.get("raw_status") or "").upper()
             absence_decision = (r.get("decision_absence") or "PENDING").upper()
             absence_excused = bool(getattr(adj, "excuse_absence", False)) if adj else False
             if raw_status == "ABSENT" and absence_decision == "PENDING" and (not absence_excused):
-                absence_rows.append(
-                    {
-                        "emp": emp,
-                        "date": d.isoformat(),
-                        "sched_start": r.get("sched_start"),
-                        "sched_end": r.get("sched_end"),
-                        "note": getattr(adj, "note", None) if adj else None,
-                    }
-                )
+               absence_rows.append(
+                {
+                 "emp": emp,
+                 "date": d.isoformat(),
+                 "sched_start": r.get("sched_start"),
+                 "sched_end": r.get("sched_end"),
+                 "note": getattr(adj, "note", None) if adj else None,
+                 "in_log": r.get("first_in_log"),
+                 "out_log": r.get("last_out_log"),
+                 }
+                   )
 
     # Sort: newest day first, then employee_code
     try:
@@ -4444,17 +4450,22 @@ def hr_review_page(
     )
 
     for s in segs:
-        early_rows.append(
-            {
-                "seg": s,
-                "emp": s.employee,
-                "date": s.day_date,
-                "out_ts": s.out_ts,
-                "in_ts": s.in_ts,
-                "end_ts": s.end_ts,
-                "minutes": int(s.minutes or 0),
-                "note": s.note,
-            }
+    settings = get_or_none_daily_settings(db, s.day_date)
+    rr = compute_day(db, s.employee, s.day_date, settings, write_db=False)
+
+    early_rows.append(
+        {
+            "seg": s,
+            "emp": s.employee,
+            "date": s.day_date,
+            "out_ts": s.out_ts,
+            "in_ts": s.in_ts,
+            "end_ts": s.end_ts,
+            "minutes": int(s.minutes or 0),
+            "note": s.note,
+            "in_log": rr.get("first_in_log"),
+            "out_log": rr.get("last_out_log"),
+        }
         )
 
     title = "مراجعة المخالفات"
