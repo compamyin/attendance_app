@@ -49,7 +49,8 @@ import urllib.request
 import urllib.parse
 from db import engine
 from models import Base
-
+# IMPORTANT: app must be defined BEFORE any @app.* decorators below.
+app = FastAPI()
 Base.metadata.create_all(bind=engine)
 def cleanup_old_videos(db: Session, days: int = 7) -> int:
     """Delete video files + clear video_path for logs older than `days` days."""
@@ -681,7 +682,6 @@ def clock_page(request: Request, db: Session = Depends(get_db)):
         },
     )
 
-app = FastAPI()
 @app.post("/api/work-doc")
 async def work_doc_api(
     request: Request,
