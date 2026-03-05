@@ -260,7 +260,6 @@ def ensure_schema():
 
 
 
-@app.on_event("startup")
 app = FastAPI()
 @app.on_event("startup")
 def startup_event():
