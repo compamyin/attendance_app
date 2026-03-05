@@ -380,31 +380,31 @@ def compute_early_leave_segments(
                 )
     except Exception:
         pass
-
-    # Final early leave (last OUT before end, with grace).
+    
+      # Final early leave (last OUT before end, with grace).
     try:
-        if sessions:
-            last_out_log = sessions[-1].get("out")
-            if last_out_log:
-                last_out_ts = _as_naive(last_out_log.server_timestamp)
-                if last_out_ts and last_out_ts < end_ts:
-                    effective_end = end_ts
-                    effective_end = _as_naive(effective_end)
-                    if effective_end and last_out_ts < effective_end:
-                        mins = _ceil_minutes(int((effective_end - last_out_ts).total_seconds()))
-                        if mins > 0:
-                            segs.append(
-                                {
-                                    "out_ts": last_out_ts,
-                                    "in_ts": None,
-                                    "end_ts": effective_end,
-                                    "minutes": mins,
-                                    "type": "FINAL",
-                                }
-                            )
+      if sessions:
+         last_out_log = sessions[-1].get("out")
+         if last_out_log:
+             last_out_ts = _as_naive(last_out_log.server_timestamp)
+             if last_out_ts and last_out_ts < end_ts:
+                # ✅ apply grace (do not count within grace window)
+                effective_end = end_ts - timedelta(minutes=int(early_leave_grace or 0))
+                effective_end = _as_naive(effective_end)
+                if effective_end and last_out_ts < effective_end:
+                    mins = _ceil_minutes(int((effective_end - last_out_ts).total_seconds()))
+                    if mins > 0:
+                        segs.append(
+                            {
+                                "out_ts": last_out_ts,
+                                "in_ts": None,
+                                "end_ts": effective_end,
+                                "minutes": mins,
+                                "type": "FINAL",
+                            }
+                        )
     except Exception:
-        pass
-
+       pass
     return segs
 
 
@@ -3444,7 +3444,7 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
         first_in_ts = _as_naive(first_in.server_timestamp)
         late_after_ts = _as_naive(late_after)
         if first_in_ts and late_after_ts and first_in_ts > late_after_ts:
-            late_minutes = int((first_in_ts - late_after_ts).total_seconds() // 60)
+            late_minutes = _ceil_minutes(int((first_in_ts - late_after_ts).total_seconds()))
 
     overtime_minutes = 0
     if last_out and work_end:
@@ -3455,7 +3455,7 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
             # overtime counted only after grace window and only if >= minimum minutes
             overtime_after = end_ts + timedelta(minutes=overtime_grace)
             if last_out_ts > overtime_after:
-                overtime_minutes = int((last_out_ts - overtime_after).total_seconds() // 60)
+                overtime_minutes = _ceil_minutes(int((last_out_ts - overtime_after).total_seconds()))
                 if overtime_minutes < overtime_min:
                     overtime_minutes = 0
 
@@ -3528,12 +3528,24 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
                         ss = rem % 60
                         early_leave_hms = f"{h:02d}:{mm:02d}:{ss:02d}"
     work_minutes = None
-    if first_in and last_out:
-        fi_ts = _as_naive(first_in.server_timestamp)
-        lo_ts = _as_naive(last_out.server_timestamp)
-        if fi_ts and lo_ts and lo_ts >= fi_ts:
-            work_minutes = int((lo_ts - fi_ts).total_seconds() // 60)
-
+    try:
+        total = 0
+        has_any = False
+        for s in sessions:
+            i_log = s.get("in")
+            o_log = s.get("out")
+            if not i_log or not o_log:
+                continue
+            i_ts = _as_naive(i_log.server_timestamp)
+            o_ts = _as_naive(o_log.server_timestamp)
+            if i_ts and o_ts and o_ts >= i_ts:
+                total += int((o_ts - i_ts).total_seconds() // 60)
+                has_any = True
+        if has_any:
+            work_minutes = total
+    except Exception:
+        work_minutes = work_minutes  # keep whatever it was
+    
     status = "ABSENT"
     if first_in and last_out:
         status = "PRESENT"
