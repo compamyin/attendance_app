@@ -356,15 +356,15 @@ async function recordVideo(durationMs){
  
      const resp = await fetch("/api/work-doc", { method: "POST", body: fd });
      if(!resp.ok){
-       const data = await resp.json().catch(()=>({detail:"حدث خطأ"}));
-       msgBox('${data.detail || "فشل رفع توثيق العمل"}
+      const data = await resp.json().catch(()=>({detail:"حدث خطأ"}));
+      msgBox(`${data.detail || "فشل رفع توثيق العمل"}
         <div class="mt-2 d-flex gap-2">
-          <button class="btn btn-sm btn-light" onclick="submitWorkDoc()">إعادة المحاولة</button>
-          <button class="btn btn-sm btn-outline-light" onclick="refreshGeo()">تحديث الموقع</button>
-        </div>', "alert alert-danger");
+        <button class="btn btn-sm btn-light" onclick="submitWorkDoc()">إعادة المحاولة</button>
+        <button class="btn btn-sm btn-outline-light" onclick="refreshGeo()">تحديث الموقع</button>
+        </div>`, "alert alert-danger");
      } else {
-       msgBox("تم إرسال توثيق العمل بنجاح (يمكنك الإرسال أكثر من مرة).", "alert alert-success");
-     }
+        msgBox("تم إرسال توثيق العمل بنجاح (يمكنك الإرسال أكثر من مرة).", "alert alert-success");
+        }
 
    }catch(e){
      console.error(e);
