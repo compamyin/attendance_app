@@ -20,6 +20,7 @@ from db import Base, engine, get_db
 from models import (
     Employee,
     AttendanceLog,
+    WorkDocumentation,
     User,
     DailySettings,
     SupportTicket,
@@ -127,7 +128,69 @@ def reverse_geocode_nominatim(lat: float, lng: float) -> tuple[str | None, str |
     except Exception:
         return None, None
 
+@app.post("/api/work-doc")
+async def work_doc_api(
+    request: Request,
+    lat: float = Form(...),
+    lng: float = Form(...),
+    accuracy_m: float = Form(...),
+    request_id: str | None = Form(None),
+    video: UploadFile | None = File(None),
+    db: Session = Depends(get_db),
+):
+    cleanup_old_videos(db, days=7)  # إذا بدك نفس سياسة الحذف بعد 7 أيام
 
+    emp = get_current_employee(request, db)
+
+    # اختياري: تقيدها بساعات الدوام
+    enforce_daily_window(db, now_tz())
+
+    # idempotent لو نفس request_id
+    if request_id:
+        ex = (
+            db.query(WorkDocumentation)
+            .filter(WorkDocumentation.employee_id == emp.id, WorkDocumentation.client_request_id == request_id)
+            .order_by(WorkDocumentation.id.desc())
+            .first()
+        )
+        if ex:
+            return {"ok": True, "media_path": ex.video_path, "ts": str(ex.server_timestamp), "note": "idempotent"}
+
+    if not video or not video.filename:
+        raise HTTPException(status_code=400, detail="الفيديو مطلوب لتوثيق العمل.")
+
+    ext = Path(video.filename).suffix.lower()
+    if ext not in (".webm", ".mp4"):
+        ext = ".webm"
+
+    fname = f"{emp.employee_code}_WORK_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}{ext}"
+    out_path = VIDEOS_DIR / fname
+    content = await video.read()
+    if len(content) > 120 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="حجم الفيديو كبير جداً (الحد 120MB).")
+    out_path.write_bytes(content)
+    media_rel_path = str(out_path.relative_to(MEDIA_DIR)).replace("\\", "/")
+
+    ua = request.headers.get("user-agent")
+    ip = request.client.host if request.client else None
+
+    row = WorkDocumentation(
+        employee_id=emp.id,
+        day_date=today_tz(),
+        server_timestamp=now_tz().replace(tzinfo=None),
+        lat=lat,
+        lng=lng,
+        accuracy_m=accuracy_m,
+        video_path=media_rel_path,
+        user_agent=ua[:255] if ua else None,
+        ip=ip,
+        client_request_id=request_id,
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+
+    return {"ok": True, "media_path": media_rel_path, "ts": str(row.server_timestamp)}
 def ensure_schema():
     """Best-effort lightweight schema migration (no Alembic).
     Keeps existing installs working after small changes.
@@ -3650,7 +3713,12 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
             early_leave_hms = None
         if adj.excuse_absence and raw_status == "ABSENT":
             status = "EXCUSED"
-
+    work_docs = (
+    db.query(WorkDocumentation)
+    .filter(WorkDocumentation.employee_id == emp.id, WorkDocumentation.day_date == d)
+    .order_by(WorkDocumentation.server_timestamp.asc())
+    .all()
+)  
     return {
         "date": d,
         "emp": emp,
@@ -3682,7 +3750,9 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
         "region": region,
         "map_url": map_url,
         "adj": adj,
-    }
+        "work_docs": work_docs,
+        "work_docs_count": len(work_docs),
+         }
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Single source of truth for calculations
