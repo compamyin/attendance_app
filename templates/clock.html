@@ -358,10 +358,10 @@ async function recordVideo(durationMs){
      if(!resp.ok){
       const data = await resp.json().catch(()=>({detail:"حدث خطأ"}));
       msgBox(`${data.detail || "فشل رفع توثيق العمل"}
-        <div class="mt-2 d-flex gap-2">
-        <button class="btn btn-sm btn-light" onclick="submitWorkDoc()">إعادة المحاولة</button>
-        <button class="btn btn-sm btn-outline-light" onclick="refreshGeo()">تحديث الموقع</button>
-        </div>`, "alert alert-danger");
+       <div class="mt-2 d-flex gap-2">
+       <button class="btn btn-sm btn-light" onclick="submitWorkDoc()">إعادة المحاولة</button>
+       <button class="btn btn-sm btn-outline-light" onclick="refreshGeo()">تحديث الموقع</button>
+       </div>`, "alert alert-danger");
      } else {
         msgBox("تم إرسال توثيق العمل بنجاح (يمكنك الإرسال أكثر من مرة).", "alert alert-success");
         }
