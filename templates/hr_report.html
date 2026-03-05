@@ -246,9 +246,12 @@
                 <td>{{ r.work_duration or '-' }}</td>
                 <td>
                   <div class="d-flex flex-wrap gap-2">
-                    <button type="button" class="btn btn-sm btn-accent" onclick="openLogModal({{ loop.index }}, 'IN')">IN</button>
-                    <button type="button" class="btn btn-sm btn-ghost" onclick="openLogModal({{ loop.index }}, 'OUT')">OUT</button>
-                    <a class="btn btn-sm btn-outline-secondary" href="/hr/dashboard?date_str={{ r.date }}&emp_id={{ emp.id }}">اليوم</a>
+                  <button type="button" class="btn btn-sm btn-accent" onclick="openLogModal({{ loop.index }}, 'IN')">IN</button>
+                  <button type="button" class="btn btn-sm btn-ghost" onclick="openLogModal({{ loop.index }}, 'OUT')">OUT</button>
+                  <button type="button" class="btn btn-sm btn-outline-warning" onclick="openLogModal({{ loop.index }}, 'WORK')">
+                  WORK ({{ r.work_docs_count or 0 }})
+                  </button>
+                  <a class="btn btn-sm btn-outline-secondary" href="/hr/dashboard?date_str={{ r.date }}&emp_id={{ emp.id }}">اليوم</a>
                   </div>
 
                   <!-- hidden day logs payload (read by JS) -->
@@ -270,6 +273,14 @@
                               data-lng="{{ s.out.lng if s.out.lng is not none else '' }}"
                               data-video="{{ s.out.video_path or '' }}"></span>
                       {% endif %}
+                      {% for w in (r.work_docs or []) %}
+                        <span class="_log" data-kind="WORK"
+                            data-id="{{ w.id }}"
+                            data-ts="{{ w.server_timestamp }}"
+                            data-lat="{{ w.lat if w.lat is not none else '' }}"
+                            data-lng="{{ w.lng if w.lng is not none else '' }}"
+                            data-video="{{ w.video_path or '' }}"></span>
+                    {% endfor %}
                     {% endfor %}
                   </div>
                 </td>
@@ -442,7 +453,9 @@
       const listTitle = document.getElementById('logListTitle');
       const list = document.getElementById('logList');
 
-      title.textContent = (kind === 'IN' ? 'حركات الدخول (IN)' : 'حركات الخروج (OUT)');
+      if(kind === 'IN') title.textContent = 'حركات الدخول (IN)'; 
+      else if(kind === 'OUT') title.textContent = 'حركات الخروج (OUT)';
+      else title.textContent = 'توثيق العمل (WORK)';
       sub.textContent = logs.length ? `عدد الحركات: ${logs.length}` : 'لا يوجد حركات';
       listTitle.textContent = 'اختر حركة لعرض الفيديو + الموقع';
       list.innerHTML = '';
