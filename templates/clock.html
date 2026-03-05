@@ -129,19 +129,36 @@
   }
 
   function stopStream(){
+    const v = document.getElementById("camVideo");
+    if(v) v.srcObject = null;
+
     if(stream){
       stream.getTracks().forEach(t => t.stop());
       stream = null;
     }
-  }
+   }
+  
 
   function cancelCam(){
     showCam(false);
+    
+    try{
+    if(recordingTimeout){
+      clearTimeout(recordingTimeout);
+      recordingTimeout = null;
+    }
+    if(recorder && recorder.state === "recording"){
+      recorder.stop();
+    }}catch(e){ console.error(e); }
+    
     stopStream();
+    setFinishEnabled(false);
+    setFlipEnabled(true);
+    
     msgBox("تم الإلغاء.", "alert alert-warning");
     lockButtons(false);
     lastActionInFlight = false;
-  }
+    }
 
   async function getStream(){
     if (stream) return stream;
@@ -204,10 +221,10 @@ async function recordVideo(durationMs){
     recorder.onstop = () => resolve(true);
     recorder.onerror = (e) => reject(e);
   });
-
-  setFinishEnabled(true);        // ✅ فعّل زر إنهاء
+  setFlipEnabled(false);   // ✅ اقفل التبديل أثناء التسجيل
+  setFinishEnabled(true);
   recorder.start();
-
+  
   // ✅ وقف تلقائي بعد المدة (إذا ما كبس إنهاء)
   recordingTimeout = setTimeout(() => {
     if(recorder && recorder.state === "recording"){
@@ -216,8 +233,8 @@ async function recordVideo(durationMs){
   }, durationMs);
 
   await done;
-
-  setFinishEnabled(false);       // ✅ عطّل زر إنهاء بعد التوقف
+  setFinishEnabled(false);
+  setFlipEnabled(true);    // ✅ رجّع التبديل بعد التسجيل
   if(recordingTimeout){
     clearTimeout(recordingTimeout);
     recordingTimeout = null;
@@ -262,22 +279,27 @@ async function recordVideo(durationMs){
       fd.append("lat", lastPos.lat);
       fd.append("lng", lastPos.lng);
       fd.append("accuracy_m", lastPos.accuracy);
-
+      fd.append("request_id", (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())));
       const ext = (blob.type && blob.type.includes("mp4")) ? "mp4" : "webm";
       fd.append("video", blob, `${action}_${Date.now()}.${ext}`);
       const resp = await fetch("/api/clock", { method: "POST", body: fd });
       if(!resp.ok){
-        const data = await resp.json().catch(()=>({detail:"حدث خطأ"}));
-        msgBox(data.detail || "فشل التسجيل", "alert alert-danger");
-      }else{
-        msgBox("تم تسجيل العملية بنجاح.", "alert alert-success");
-      }
+         const data = await resp.json().catch(()=>({detail:"حدث خطأ"}));
+         msgBox('${data.detail || "فشل التسجيل"}
+         <div class="mt-2 d-flex gap-2">
+         <button class="btn btn-sm btn-light" onclick="submitAction('${action}')">إعادة المحاولة</button>
+         <button class="btn btn-sm btn-outline-light" onclick="refreshGeo()">تحديث الموقع</button>
+         </div>', "alert alert-danger");}else{
+         msgBox("تم تسجيل العملية بنجاح.", "alert alert-success");
+         }
 
     }catch(e){
       console.error(e);
       showCam(false);
       stopStream();
-      msgBox("فشل فتح/استخدام الكاميرا. تأكد من السماح.", "alert alert-danger");
+      msgBox(`   فشل فتح/استخدام الكاميرا. تأكد من السماح.   <div class="mt-2">     
+      <button class="btn btn-sm btn-light" onclick="submitAction('${action}')">إعادة المحاولة</button>
+      </div> `, "alert alert-danger");
     }finally{
       lockButtons(false);
       lastActionInFlight = false;
