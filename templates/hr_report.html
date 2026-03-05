@@ -256,33 +256,35 @@
 
                   <!-- hidden day logs payload (read by JS) -->
                   <div id="daydata-{{ loop.index }}" style="display:none;">
-                    {% for s in (r.sessions or []) %}
-                      {% if s.in %}
-                        <span class="_log" data-kind="IN"
-                              data-id="{{ s.in.id }}"
-                              data-ts="{{ s.in.server_timestamp }}"
-                              data-lat="{{ s.in.lat if s.in.lat is not none else '' }}"
-                              data-lng="{{ s.in.lng if s.in.lng is not none else '' }}"
-                              data-video="{{ s.in.video_path or '' }}"></span>
-                      {% endif %}
-                      {% if s.out %}
-                        <span class="_log" data-kind="OUT"
-                              data-id="{{ s.out.id }}"
-                              data-ts="{{ s.out.server_timestamp }}"
-                              data-lat="{{ s.out.lat if s.out.lat is not none else '' }}"
-                              data-lng="{{ s.out.lng if s.out.lng is not none else '' }}"
-                              data-video="{{ s.out.video_path or '' }}"></span>
-                      {% endif %}
-                      {% for w in (r.work_docs or []) %}
-                        <span class="_log" data-kind="WORK"
-                            data-id="{{ w.id }}"
-                            data-ts="{{ w.server_timestamp }}"
-                            data-lat="{{ w.lat if w.lat is not none else '' }}"
-                            data-lng="{{ w.lng if w.lng is not none else '' }}"
-                            data-video="{{ w.video_path or '' }}"></span>
-                    {% endfor %}
-                    {% endfor %}
-                  </div>
+  {% for s in (r.sessions or []) %}
+    {% if s.in %}
+      <span class="_log" data-kind="IN"
+        data-id="{{ s.in.id }}"
+        data-ts="{{ s.in.server_timestamp }}"
+        data-lat="{{ s.in.lat if s.in.lat is not none else '' }}"
+        data-lng="{{ s.in.lng if s.in.lng is not none else '' }}"
+        data-video="{{ s.in.video_path or '' }}"></span>
+    {% endif %}
+
+    {% if s.out %}
+      <span class="_log" data-kind="OUT"
+        data-id="{{ s.out.id }}"
+        data-ts="{{ s.out.server_timestamp }}"
+        data-lat="{{ s.out.lat if s.out.lat is not none else '' }}"
+        data-lng="{{ s.out.lng if s.out.lng is not none else '' }}"
+        data-video="{{ s.out.video_path or '' }}"></span>
+    {% endif %}
+  {% endfor %}
+
+  {% for w in (r.work_docs or []) %}
+    <span class="_log" data-kind="WORK"
+      data-id="{{ w.id }}"
+      data-ts="{{ w.server_timestamp }}"
+      data-lat="{{ w.lat if w.lat is not none else '' }}"
+      data-lng="{{ w.lng if w.lng is not none else '' }}"
+      data-video="{{ w.video_path or '' }}"></span>
+  {% endfor %}
+</div>
                 </td>
               </tr>
             {% endfor %}
@@ -367,16 +369,14 @@
     let _leafletMarker = null;
 
     function _normalizeVideoPath(p){
-      if(!p) return '';
-      // Accept: 'videos/..' OR 'media/videos/..' OR '/media/videos/..' OR filename
-      p = String(p).trim();
-      p = p.replace(/^\/+/, '');
-      p = p.replace(/^media\//, '');
-      if(p.startsWith('media/')) p = p.slice(6);
-      // If already has a folder like 'videos/...'
-      if(p.includes('/')) return p;
-      return 'videos/' + p;
-    }
+     if(!p) return '';
+     p = String(p).trim();
+     p = p.replace(/\\/g, '/');
+     p = p.replace(/^\/+/, '');
+     if(p.startsWith('media/')) p = p.slice(6);
+     if(p.includes('/')) return p;
+     return 'videos/' + p;
+     }
 
     function _guessMime(p){
       const s = (p || '').toLowerCase();
@@ -659,11 +659,11 @@
                     <a target="_blank" href="{{ s.out.map_url }}">خريطة الخروج</a>
                   {% endif %}
                 </td>
-                <td>
+                 <td>
   {% if s.in and s.in.video_path %}
     {% set p = s.in.video_path %}
     <a class="btn btn-sm btn-success" target="_blank"
-       href="/media/{{ p if p.startswith('videos/') else p|replace('media/','') }}">
+       href="/media/{{ p if p.startswith('videos/') else ('videos/' ~ (p|replace('media/',''))) }}">
       IN
     </a>
   {% endif %}
@@ -672,7 +672,7 @@
     {% set p2 = s.out.video_path %}
     <span class="mx-1">|</span>
     <a class="btn btn-sm btn-danger" target="_blank"
-       href="/media/{{ p2 if p2.startswith('videos/') else p2|replace('media/','') }}">
+       href="/media/{{ p2 if p2.startswith('videos/') else ('videos/' ~ (p2|replace('media/',''))) }}">
       OUT
     </a>
   {% endif %}
