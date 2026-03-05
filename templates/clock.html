@@ -286,11 +286,11 @@ async function recordVideo(durationMs){
       const resp = await fetch("/api/clock", { method: "POST", body: fd });
       if(!resp.ok){
          const data = await resp.json().catch(()=>({detail:"حدث خطأ"}));
-        msgBox(`${data.detail || "فشل التسجيل"}
-          <div class="mt-2 d-flex gap-2">
-          <button class="btn btn-sm btn-light" onclick="submitAction('${action}')">إعادة المحاولة</button>
-          <button class="btn btn-sm btn-outline-light" onclick="refreshGeo()">تحديث الموقع</button>
-          </div>`, "alert alert-danger");
+       msgBox(`${data.detail || "فشل التسجيل"}
+       <div class="mt-2 d-flex gap-2">
+       <button class="btn btn-sm btn-light" onclick="submitAction('${action}')">إعادة المحاولة</button>
+       <button class="btn btn-sm btn-outline-light" onclick="refreshGeo()">تحديث الموقع</button>
+       </div>`, "alert alert-danger");
          msgBox("تم تسجيل العملية بنجاح.", "alert alert-success");
          }
 
