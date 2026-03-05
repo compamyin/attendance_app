@@ -277,7 +277,26 @@ class PayrollRecord(Base):
     batch = relationship("PayrollBatch", back_populates="records")
     employee = relationship("Employee")
 
+class WorkDocumentation(Base):
+    __tablename__ = "work_documentations"
 
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    employee_id = Column(Integer, ForeignKey("employees.id"), nullable=False, index=True)
+    day_date = Column(Date, nullable=False, index=True)
+    server_timestamp = Column(DateTime, nullable=False, default=datetime.now)
+
+    lat = Column(DECIMAL(10, 7), nullable=True)
+    lng = Column(DECIMAL(10, 7), nullable=True)
+    accuracy_m = Column(Float, nullable=True)
+
+    video_path = Column(String(255), nullable=True)
+
+    user_agent = Column(String(255), nullable=True)
+    ip = Column(String(45), nullable=True)
+
+    client_request_id = Column(String(60), nullable=True)
+
+    employee = relationship("Employee")
 class AttendanceEarlyLeaveSegment(Base):
     __tablename__ = "attendance_early_leave_segments"
 
