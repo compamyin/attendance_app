@@ -50,7 +50,6 @@ import urllib.parse
 from db import engine
 from models import Base
 # IMPORTANT: app must be defined BEFORE any @app.* decorators below.
-app = FastAPI()
 Base.metadata.create_all(bind=engine)
 def cleanup_old_videos(db: Session, days: int = 7) -> int:
     """Delete video files + clear video_path for logs older than `days` days."""
@@ -138,22 +137,10 @@ def ensure_schema():
     """
     with engine.begin() as conn:
         # employees.profile_photo_path
-        res = conn.execute(text("SHOW COLUMNS FROM employees LIKE 'profile_photo_path'")).fetchall()
-        if not res:
-            conn.execute(text("ALTER TABLE employees ADD COLUMN profile_photo_path VARCHAR(255) NULL"))
-
-
-        # employees.allowed_ip
-        res = conn.execute(text("SHOW COLUMNS FROM employees LIKE 'allowed_ip'")).fetchall()
-        if not res:
-            conn.execute(text("ALTER TABLE employees ADD COLUMN allowed_ip VARCHAR(45) NULL"))
-
-        
-        # employees.social_security_no
-        res = conn.execute(text("SHOW COLUMNS FROM employees LIKE 'social_security_no'")).fetchall()
-        if not res:
-            conn.execute(text("ALTER TABLE employees ADD COLUMN social_security_no VARCHAR(40) NULL"))
-# attendance_logs.video_path / area_name / region_name
+        conn.execute(text("ALTER TABLE employees ADD COLUMN IF NOT EXISTS profile_photo_path VARCHAR(255)"))
+        conn.execute(text("ALTER TABLE employees ADD COLUMN IF NOT EXISTS allowed_ip VARCHAR(45)"))
+        conn.execute(text("ALTER TABLE employees ADD COLUMN IF NOT EXISTS social_security_no VARCHAR(40)"))
+        # attendance_logs.video_path / area_name / region_name
         for col, ddl in [
             ("video_path", "ALTER TABLE attendance_logs ADD COLUMN video_path VARCHAR(255) NULL"),
             ("area_name", "ALTER TABLE attendance_logs ADD COLUMN area_name VARCHAR(100) NULL"),
@@ -274,7 +261,7 @@ def ensure_schema():
 
 
 
-
+app = FastAPI()
 @app.on_event("startup")
 def startup_event():
     try:
