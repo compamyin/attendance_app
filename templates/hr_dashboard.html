@@ -165,6 +165,7 @@
                   <th>مدة الدوام</th>
                   <th>الموقع</th>
                   <th>الفيديو</th>
+                  <th>توثيق العمل</th>
                 </tr>
               </thead>
               <tbody>
@@ -207,6 +208,17 @@
                         <span class="muted">-</span>
                       {% endif %}
                     </td>
+                    <td>
+                      {% set c = r.work_docs_count or 0 %}
+                      {% if c > 0 %}
+                      <a class="btn btn-sm btn-outline-warning"
+                      href="/hr/report?emp_id={{ r.emp_id }}&date_str={{ today.strftime('%Y-%m-%d') }}#workdocs">
+                      {{ c }} فيديو
+                      </a>
+                      {% else %}
+                      <span class="muted">0</span>
+                      {% endif %}
+                      </td>
                   </tr>
                 {% endfor %}
               </tbody>
