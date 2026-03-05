@@ -15,6 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi import UploadFile, File
 from sqlalchemy import and_, func, text
 from sqlalchemy.orm import Session
+from fastapi import FastAPI, Request, Depends
 
 from db import Base, engine, get_db
 from models import (
@@ -332,7 +333,6 @@ def ensure_schema():
 
 
 
-app = FastAPI()
 
 
 @app.on_event("startup")
@@ -742,6 +742,7 @@ def clock_page(request: Request, db: Session = Depends(get_db)):
         },
     )
 
+app = FastAPI()
 
 @app.post("/api/clock")
 async def clock_api(
