@@ -62,7 +62,7 @@
     <div class="d-flex justify-content-between align-items-center mb-2">
       <div class="text-white fw-bold" id="camTitle">الكاميرا</div>
       <div class="d-flex gap-2">
-        <button class="btn btn-sm btn-outline-light" type="button" onclick="flipCam()">تبديل</button>
+        <button class="btn btn-sm btn-outline-light" type="button" id="btnFlip" onclick="flipCam()">تبديل</button>
         <button class="btn btn-sm btn-warning" type="button" id="btnFinish" onclick="finishRecording()" disabled>إنهاء</button>
         <button class="btn btn-sm btn-outline-light" type="button" onclick="cancelCam()">إلغاء</button>
       </div>
@@ -159,7 +159,7 @@
     lockButtons(false);
     lastActionInFlight = false;
     }
-
+  
   async function getStream(){
     if (stream) return stream;
 
@@ -175,10 +175,14 @@
   }
 
   async function flipCam(){
-    facing = (facing === "user") ? "environment" : "user";
-    stopStream();
-    await getStream();
-  }
+     if(recorder && recorder.state === "recording"){
+       msgBox("لا يمكن تبديل الكاميرا أثناء التسجيل.", "alert alert-warning");
+       return;
+     }
+     facing = (facing === "user") ? "environment" : "user";
+     stopStream();
+     await getStream(); 
+     }
   let recordingTimeout = null;
 
 function setFinishEnabled(on){
