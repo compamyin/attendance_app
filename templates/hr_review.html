@@ -21,6 +21,7 @@
         <option value="late" {% if kind=="late" %}selected{% endif %}>تأخير</option>
         <option value="early_leave" {% if kind=="early_leave" %}selected{% endif %}>مغادرة</option>
         <option value="absence" {% if kind=="absence" %}selected{% endif %}>غياب</option>
+        <option value="overtime" {% if kind=="overtime" %}selected{% endif %}>إضافي</option>
       </select>
       <button class="btn btn-primary btn-sm" type="submit">عرض</button>
     </form>
@@ -92,6 +93,15 @@
                         <input type="hidden" name="emp_id" value="{{ r.emp.id }}">
                         <input type="hidden" name="decision" value="APPROVED">
                         <button class="btn btn-success btn-sm">OK</button>
+                      </form>
+                      <form method="post" action="/hr/review/decide" class="d-inline">
+                        <input type="hidden" name="back" value="{{ back_url }}">
+                        <input type="hidden" name="kind" value="late">
+                        <input type="hidden" name="date_str" value="{{ r.date }}">
+                        <input type="hidden" name="emp_id" value="{{ r.emp.id }}">
+                        <input type="hidden" name="decision" value="APPROVED">
+                        <input type="hidden" name="compensate" value="1">
+                        <button class="btn btn-warning btn-sm">تعويض</button>
                       </form>
                       <form method="post" action="/hr/review/decide" class="d-inline">
                         <input type="hidden" name="back" value="{{ back_url }}">
