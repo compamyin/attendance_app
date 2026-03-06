@@ -226,7 +226,18 @@ def ensure_schema():
             ("decision_late", "ALTER TABLE attendance_adjustments ADD COLUMN decision_late VARCHAR(20) NOT NULL DEFAULT 'PENDING'"),
             ("decision_early_leave", "ALTER TABLE attendance_adjustments ADD COLUMN decision_early_leave VARCHAR(20) NOT NULL DEFAULT 'PENDING'"),
             ("decision_absence", "ALTER TABLE attendance_adjustments ADD COLUMN decision_absence VARCHAR(20) NOT NULL DEFAULT 'PENDING'"),
+            ("compensate_late", "ALTER TABLE attendance_adjustments ADD COLUMN compensate_late TINYINT(1) NOT NULL DEFAULT 0"),
+            ("compensate_early_leave", "ALTER TABLE attendance_adjustments ADD COLUMN compensate_early_leave TINYINT(1) NOT NULL DEFAULT 0"),
+            ("excuse_overtime", "ALTER TABLE attendance_adjustments ADD COLUMN excuse_overtime TINYINT(1) NOT NULL DEFAULT 0"),
+            ("decision_overtime", "ALTER TABLE attendance_adjustments ADD COLUMN decision_overtime VARCHAR(20) NOT NULL DEFAULT 'PENDING'"),        
         ]:
+            # daily_settings official_work_minutes (older installs)
+            try:
+               res = conn.execute(text("SHOW COLUMNS FROM daily_settings LIKE 'official_work_minutes'")).fetchall()
+               if not res:
+                    conn.execute(text("ALTER TABLE daily_settings ADD COLUMN official_work_minutes INT NOT NULL DEFAULT 480"))
+            except Exception:
+              pass
             try:
                 res = conn.execute(text(f"SHOW COLUMNS FROM attendance_adjustments LIKE '{col}'")).fetchall()
                 if not res:
@@ -2476,7 +2487,11 @@ def hr_settings_page(request: Request, db: Session = Depends(get_db)):
     early_grace = (getattr(settings, "early_leave_grace_minutes", 5) if settings else 5)
     ot_grace = (getattr(settings, "overtime_grace_minutes", 5) if settings else 5)
     ot_min = (getattr(settings, "overtime_min_minutes", 30) if settings else 30)
-
+    official_min = (getattr(settings, 'official_work_minutes', 480) if settings else 480)
+    try:
+        official_hours = float(official_min) / 60.0
+    except Exception:
+        official_hours = 8.0
     return templates.TemplateResponse(
         "hr_settings.html",
         {
@@ -2491,6 +2506,7 @@ def hr_settings_page(request: Request, db: Session = Depends(get_db)):
             "overtime_grace_minutes": ot_grace,
             "overtime_min_minutes": ot_min,
             "err": request.query_params.get("err"),
+            "official_hours": official_hours,
         },
     )
 
@@ -2505,6 +2521,7 @@ def hr_save_settings(
     early_leave_grace_minutes: int = Form(5),
     overtime_grace_minutes: int = Form(5),
     overtime_min_minutes: int = Form(30),
+    official_hours: float = Form(8.0),
     is_holiday: str | None = Form(None),
     db: Session = Depends(get_db),
 ):
@@ -2535,6 +2552,11 @@ def hr_save_settings(
         existing.early_leave_grace_minutes = int(early_leave_grace_minutes or 0)
         existing.overtime_grace_minutes = int(overtime_grace_minutes or 0)
         existing.overtime_min_minutes = int(overtime_min_minutes or 0)
+        official_work_minutes=int(round(float(official_hours or 8.0) * 60)),
+        try:
+           existing.official_work_minutes = int(round(float(official_hours or 8.0) * 60))
+        except Exception:
+           existing.official_work_minutes = 480
         existing.created_by_user_id = u.id
     else:
         ds = DailySettings(
@@ -2575,8 +2597,8 @@ def _compute_payroll_for_month(
     salary_monthly = float(emp.salary_monthly or 0.0)
     base_daily = (salary_monthly / 30.0) if salary_monthly else 0.0
 
-    # Official shift is always 9 hours for payroll calculations (per your rule).
-    shift_hours = 9.0
+    # Official shift hours for payroll minute rate (default 8 hours)
+    shift_hours = 8.0
 
     hourly_rate = (base_daily / shift_hours) if base_daily else 0.0
     minute_rate = (hourly_rate / 60.0) if hourly_rate else 0.0
@@ -3497,87 +3519,8 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
         if first_in_ts and late_after_ts and first_in_ts > late_after_ts:
             late_minutes = _ceil_minutes(int((first_in_ts - late_after_ts).total_seconds()))
 
-    overtime_minutes = 0
-    if last_out and work_end:
-        end_time_dt = datetime.combine(d, work_end)
-        last_out_ts = _as_naive(last_out.server_timestamp)
-        end_ts = _as_naive(end_time_dt)
-        if last_out_ts and end_ts:
-            # overtime counted only after grace window and only if >= minimum minutes
-            overtime_after = end_ts + timedelta(minutes=overtime_grace)
-            if last_out_ts > overtime_after:
-                overtime_minutes = _ceil_minutes(int((last_out_ts - overtime_after).total_seconds()))
-                if overtime_minutes < overtime_min:
-                    overtime_minutes = 0
+   
 
-    # Early leave is tracked as segments:
-    # - BREAK: OUT -> next IN during scheduled hours
-    # - FINAL: last OUT -> scheduled end (with grace)
-    early_leave_total_minutes = 0
-    early_leave_approved_minutes = 0
-    early_leave_seconds = 0
-    early_leave_hms = None
-    early_leave_segments = []
-
-    if work_end:
-        segs = compute_early_leave_segments(sessions, d, work_end, int(early_leave_grace or 0))
-        if segs:
-            # In preview mode we must NOT write to DB. If segments were previously committed,
-            # we can still read them for decisions.
-            existing_recs = (
-                db.query(AttendanceEarlyLeaveSegment)
-                .filter(AttendanceEarlyLeaveSegment.employee_id == emp.id, AttendanceEarlyLeaveSegment.day_date == d)
-                .order_by(AttendanceEarlyLeaveSegment.out_ts.asc(), AttendanceEarlyLeaveSegment.end_ts.asc())
-                .all()
-            )
-
-            seg_recs = None
-            if write_db:
-                # upsert + pull decisions
-                seg_recs = sync_early_leave_segments(db, emp.id, d, segs)
-            elif existing_recs:
-                seg_recs = existing_recs
-
-            early_leave_segments = seg_recs or []
-
-            # Raw minutes always come from computed segments.
-            early_leave_total_minutes = int(sum(int(s.get("minutes") or 0) for s in segs))
-
-            # Approved minutes only from persisted records (decisions).
-            if seg_recs:
-                early_leave_approved_minutes = int(
-                    sum(int(getattr(r, "minutes", 0) or 0) for r in seg_recs if (getattr(r, "decision", "PENDING") or "PENDING") == "APPROVED")
-                )
-            else:
-                early_leave_approved_minutes = 0
-
-            # For display only: build HH:MM:SS for total minutes
-            early_leave_seconds = int(early_leave_total_minutes * 60)
-            if early_leave_seconds > 0:
-                h = early_leave_seconds // 3600
-                rem = early_leave_seconds % 3600
-                mm = rem // 60
-                ss = rem % 60
-                early_leave_hms = f"{h:02d}:{mm:02d}:{ss:02d}"
-        else:
-            # Fallback to legacy single-final-OUT early leave (keeps old installs behaving)
-            early_leave_minutes = 0
-            if last_out:
-                end_time_dt = datetime.combine(d, work_end)
-                last_out_ts = _as_naive(last_out.server_timestamp)
-                end_ts = _as_naive(end_time_dt)
-                if last_out_ts and end_ts:
-                    early_before = end_ts - timedelta(minutes=early_leave_grace)
-                    if last_out_ts < early_before:
-                        early_leave_seconds = int((early_before - last_out_ts).total_seconds())
-                        early_leave_minutes = int(math.ceil(early_leave_seconds / 60.0)) if early_leave_seconds > 0 else 0
-                        early_leave_total_minutes = int(early_leave_minutes)
-                        early_leave_approved_minutes = int(early_leave_minutes)
-                        h = early_leave_seconds // 3600
-                        rem = early_leave_seconds % 3600
-                        mm = rem // 60
-                        ss = rem % 60
-                        early_leave_hms = f"{h:02d}:{mm:02d}:{ss:02d}"
     work_minutes = None
     try:
         total = 0
@@ -3596,7 +3539,39 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
             work_minutes = total
     except Exception:
         work_minutes = work_minutes  # keep whatever it was
+    # Official duration (minutes) comes from settings (default 8 hours)
+    official_minutes = int((getattr(settings, "official_work_minutes", 480) if settings else 480) or 480)
+    if official_minutes <= 0:
+      official_minutes = 480
     
+    # Raw overtime/deficit are based on total work_minutes (not on last_out after sched_end)
+    raw_work_minutes = int(work_minutes or 0)
+    raw_overtime_minutes = max(0, raw_work_minutes - official_minutes)
+    deficit_raw_minutes = 0
+    
+    # Only treat deficit when there is at least one complete session and the employee is present.
+    # ABSENT is handled separately.
+    if work_minutes is not None:
+       deficit_raw_minutes = max(0, official_minutes - raw_work_minutes)
+    
+    # Apply minimum overtime threshold for PAYABLE overtime only (not for compensation)
+    payable_overtime_raw = int(raw_overtime_minutes)
+    if payable_overtime_raw < overtime_min:
+      payable_overtime_raw = 0
+    
+    # NOTE: we no longer compute early leave as segments. Any shortfall from official_minutes is "deficit".
+    early_leave_total_minutes = int(deficit_raw_minutes)
+    early_leave_approved_minutes = 0
+    early_leave_seconds = int(early_leave_total_minutes * 60) if early_leave_total_minutes > 0 else 0
+    early_leave_hms = None
+    if early_leave_seconds > 0:
+       h = early_leave_seconds // 3600
+       rem = early_leave_seconds % 3600
+       mm = rem // 60
+       ss = rem % 60
+       early_leave_hms = f"{h:02d}:{mm:02d}:{ss:02d}"
+    
+    overtime_minutes = 0
     status = "ABSENT"
     if first_in and last_out:
         status = "PRESENT"
@@ -3642,7 +3617,7 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
             .filter(AttendanceAdjustment.employee_id == emp.id, AttendanceAdjustment.day_date == d)
             .first()
         ):
-            if raw_late_minutes > 0 or raw_early_leave_minutes > 0 or raw_status == "ABSENT":
+            if raw_late_minutes > 0 or raw_early_leave_minutes > 0 or int(raw_overtime_minutes or 0) > 0 or raw_status == "ABSENT":
                 new_adj = AttendanceAdjustment(employee_id=emp.id, day_date=d)
                 db.add(new_adj)
                 db.commit()
@@ -3658,30 +3633,41 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
     decision_absence = getattr(adj, "decision_absence", None) if adj else None
 
         # Defaults: nothing is deducted unless explicitly APPROVED.
-    if raw_late_minutes > 0 and decision_late != "APPROVED":
-        late_minutes = 0
-
-    # Early leave:
-    # - If we have persisted segments, deduction comes from APPROVED segments.
-    # - If we DON'T have persisted segments (preview mode), allow HR approval via AttendanceAdjustment.
-    if raw_early_leave_minutes > 0:
-        if early_leave_segments:
-            # segment-based path already computed early_leave_minutes from APPROVED segments
-            pass
+    # Late (deduct only if APPROVED, after compensation)
+    if raw_late_minutes > 0:
+        if decision_late == "APPROVED":
+            late_minutes = int(late_after_comp)
         else:
-            if decision_early == "APPROVED":
-                early_leave_minutes = int(raw_early_leave_minutes)
-                early_leave_seconds = int(early_leave_minutes * 60)
-                if early_leave_seconds > 0:
-                    h = early_leave_seconds // 3600
-                    rem = early_leave_seconds % 3600
-                    mm = rem // 60
-                    ss = rem % 60
-                    early_leave_hms = f"{h:02d}:{mm:02d}:{ss:02d}"
-            else:
-                early_leave_minutes = 0
-                early_leave_seconds = 0
-                early_leave_hms = None
+            late_minutes = 0
+
+    # Deficit/Early leave (deduct only if APPROVED, after compensation)
+    if raw_early_leave_minutes > 0:
+        if decision_early == "APPROVED":
+            early_leave_minutes = int(deficit_after_comp)
+        else:
+            early_leave_minutes = 0
+
+        early_leave_seconds = int(early_leave_minutes * 60)
+        if early_leave_seconds > 0:
+            h = early_leave_seconds // 3600
+            rem = early_leave_seconds % 3600
+            mm = rem // 60
+            ss = rem % 60
+            early_leave_hms = f"{h:02d}:{mm:02d}:{ss:02d}"
+        else:
+            early_leave_hms = None
+
+    # Payable overtime: remaining minutes after compensation + threshold + HR approval
+    overtime_minutes = 0
+    payable_remaining = int(remaining_ot)
+    if payable_remaining < overtime_min:
+        payable_remaining = 0
+
+    if int(raw_overtime_minutes or 0) > 0:
+        if decision_overtime == "APPROVED" and not (adj and getattr(adj, "excuse_overtime", False)):
+            overtime_minutes = int(payable_remaining)
+        else:
+            overtime_minutes = 0
 
     if raw_status == "ABSENT":
         if decision_absence == "APPROVED":
@@ -3692,6 +3678,7 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
             status = "ABSENT_PENDING"
 
     # Explicit excuses always win
+    early_leave_segments = []
     if adj:
         if adj.excuse_late:
             late_minutes = 0
@@ -3761,7 +3748,9 @@ def compute_day(db: Session, emp: Employee, d: date, settings: DailySettings, *,
 
     row["early_leave_raw_min"] = int(row.get("raw_early_leave") or 0)
     row["early_leave_approved_min"] = int(row.get("early_leave") or 0)
-
+    row["overtime_raw_min"] = int(row.get("raw_overtime") or 0)
+    row["overtime_approved_min"] = int(row.get("overtime") or 0)
+    row["overtime_after_comp_min"] = int(row.get("overtime_after_comp") or 0)
     row["absence_raw_status"] = row.get("raw_status")
 
     if row.get("raw_status") == "ABSENT":
@@ -4400,7 +4389,7 @@ def hr_review_page(
             d_filter = None
 
     kind_clean = (kind or "").strip().lower()
-    if kind_clean not in ("late", "early_leave", "absence", ""):
+    if kind_clean not in ("late", "early_leave", "absence", "overtime", ""):
         kind_clean = ""
 
     # Default window: current month start -> today (unless a specific day is requested)
@@ -4421,6 +4410,7 @@ def hr_review_page(
     late_rows: list[dict] = []
     absence_rows: list[dict] = []
     early_rows: list[dict] = []
+    overtime_rows: list[dict] = []
     # Late + Absence are decided per-day (AttendanceAdjustment). If no adjustment row exists yet,
     # treat it as PENDING so HR can see it here (matches payroll "pending" behavior).
     for emp in employees:
@@ -4546,7 +4536,8 @@ def hr_review_page(
         title = "مراجعة المغادرة"
     elif kind_clean == "absence":
         title = "مراجعة الغياب"
-
+    elif kind_clean == "overtime":
+        title = "مراجعة الإضافي"
     if kind_clean == "late":
         early_rows = []
         absence_rows = []
@@ -4556,7 +4547,10 @@ def hr_review_page(
     elif kind_clean == "absence":
         late_rows = []
         early_rows = []
-
+    elif kind_clean == "overtime":
+        late_rows = []
+        early_rows = []
+        absence_rows = []
     return templates.TemplateResponse(
         "hr_review.html",
         {
@@ -4571,6 +4565,7 @@ def hr_review_page(
             "early_rows": early_rows,
             "absence_rows": absence_rows,
             "month": f"{today_tz().year:04d}-{today_tz().month:02d}",
+            "overtime_rows": overtime_rows,
         },
     )
 @app.post("/hr/review/decide")
@@ -4583,6 +4578,7 @@ def hr_review_decide(
     segment_id: str = Form(None),
     decision: str = Form(...),
     note: str = Form(None),
+    compensate: str | None = Form(None),
     back: str = Form(None),
 ):
     try:
@@ -4621,19 +4617,27 @@ def hr_review_decide(
     adj = _get_or_create_adj(db, emp_id, d, u.id)
 
     note_clean = (note or "").strip()[:255]
-
     if kind == "late":
-        adj.decision_late = decision
-        if decision in ("REJECTED","EXCUSED"):
-            adj.excuse_late = True
+       adj.decision_late = decision
+       adj.compensate_late = bool(compensate)
+       if decision in ("REJECTED","EXCUSED"):
+          adj.excuse_late = True
+          adj.compensate_late = False
+   
     elif kind == "early_leave":
         adj.decision_early_leave = decision
+        adj.compensate_early_leave = bool(compensate)
         if decision in ("REJECTED","EXCUSED"):
-            adj.excuse_early_leave = True
+           adj.excuse_early_leave = True
+           adj.compensate_early_leave = False
     elif kind == "absence":
         adj.decision_absence = decision
         if decision in ("REJECTED","EXCUSED"):
             adj.excuse_absence = True
+    elif kind == "overtime":
+      adj.decision_overtime = decision
+      if decision in ("REJECTED","EXCUSED"):
+        adj.excuse_overtime = True        
 
     adj.updated_by_user_id = u.id
     db.add(adj)
