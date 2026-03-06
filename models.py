@@ -98,6 +98,8 @@ class DailySettings(Base):
     work_start: Mapped[Time] = mapped_column(Time, nullable=False)
     work_end: Mapped[Time] = mapped_column(Time, nullable=False)
     grace_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # Official work duration for the day (minutes). Default 8 hours = 480
+    official_work_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=480)
     # Extra windows for payroll rules
     early_leave_grace_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=5)
     overtime_grace_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=5)
@@ -136,7 +138,12 @@ class AttendanceAdjustment(Base):
 
     excuse_late: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     excuse_absence: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-
+    # HR can choose to compensate late/early_leave using available overtime minutes in the same day
+    compensate_late: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    compensate_early_leave: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Overtime review
+    excuse_overtime: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    decision_overtime: Mapped[str] = mapped_column(Enum('PENDING','APPROVED','REJECTED', name='overtime_decision_enum'), nullable=False, default='PENDING')
     decision_late: Mapped[str] = mapped_column(Enum('PENDING','APPROVED','REJECTED', name="late_decision_enum"), nullable=False, default='PENDING')
     decision_early_leave: Mapped[str] = mapped_column(Enum('PENDING','APPROVED','REJECTED', name="early_leave_decision_enum"), nullable=False, default='PENDING')
     decision_absence: Mapped[str] = mapped_column(Enum('PENDING','APPROVED','REJECTED', name="absence_decision_enum"), nullable=False, default='PENDING')
