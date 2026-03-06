@@ -3485,8 +3485,8 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
         .filter(AttendanceAdjustment.employee_id == emp.id, AttendanceAdjustment.day_date == d)
         .first()
     )
-
-        decision_late = getattr(adj, "decision_late", None) if adj else None
+    
+    decision_late = getattr(adj, "decision_late", None) if adj else None
     decision_early = getattr(adj, "decision_early_leave", None) if adj else None
     decision_absence = getattr(adj, "decision_absence", None) if adj else None
     decision_overtime = getattr(adj, "decision_overtime", None) if adj else None
