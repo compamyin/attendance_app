@@ -219,28 +219,31 @@ def ensure_schema():
             FOREIGN KEY (employee_id) REFERENCES employees(id),
             FOREIGN KEY (created_by_user_id) REFERENCES users(id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"""))
-
-        # If table exists but missing columns (older installs)
-        # If table exists but missing columns (PostgreSQL-safe)
+        # If table exists but missing columns (older installs) - PostgreSQL safe
         for col, ddl in [
-            ("compensate_late", "ALTER TABLE attendance_adjustments ADD COLUMN compensate_late BOOLEAN NOT NULL DEFAULT FALSE"),
-            ("compensate_early_leave", "ALTER TABLE attendance_adjustments ADD COLUMN compensate_early_leave BOOLEAN NOT NULL DEFAULT FALSE"),
-            ("excuse_overtime", "ALTER TABLE attendance_adjustments ADD COLUMN excuse_overtime BOOLEAN NOT NULL DEFAULT FALSE"),
-            ("decision_overtime", "ALTER TABLE attendance_adjustments ADD COLUMN decision_overtime VARCHAR(20) NOT NULL DEFAULT 'PENDING'"),
-        ]:
-            try:
-                res = conn.execute(text(f"""
-                    SELECT 1
-                    FROM information_schema.columns
-                    WHERE table_name = 'attendance_adjustments'
-                      AND column_name = '{col}'
-                """)).fetchall()
-                if not res:
-                    conn.execute(text(ddl))
-            except Exception:
+             ("excuse_early_leave", "ALTER TABLE attendance_adjustments ADD COLUMN excuse_early_leave BOOLEAN NOT NULL DEFAULT FALSE"),
+             ("decision_late", "ALTER TABLE attendance_adjustments ADD COLUMN decision_late VARCHAR(20) NOT NULL DEFAULT 'PENDING'"),
+             ("decision_early_leave", "ALTER TABLE attendance_adjustments ADD COLUMN decision_early_leave VARCHAR(20) NOT NULL DEFAULT 'PENDING'"),
+             ("decision_absence", "ALTER TABLE attendance_adjustments ADD COLUMN decision_absence VARCHAR(20) NOT NULL DEFAULT 'PENDING'"),
+             ("compensate_late", "ALTER TABLE attendance_adjustments ADD COLUMN compensate_late BOOLEAN NOT NULL DEFAULT FALSE"),
+             ("compensate_early_leave", "ALTER TABLE attendance_adjustments ADD COLUMN compensate_early_leave BOOLEAN NOT NULL DEFAULT FALSE"),
+             ("excuse_overtime", "ALTER TABLE attendance_adjustments ADD COLUMN excuse_overtime BOOLEAN NOT NULL DEFAULT FALSE"),
+             ("decision_overtime", "ALTER TABLE attendance_adjustments ADD COLUMN decision_overtime VARCHAR(20) NOT NULL DEFAULT 'PENDING'"),
+         ]:
+             try:
+                 res = conn.execute(text(f"""
+                     SELECT 1
+                     FROM information_schema.columns
+                     WHERE table_name = 'attendance_adjustments'
+                       AND column_name = '{col}'
+                 """)).fetchall()
+                 if not res:
+                     conn.execute(text(ddl))
+             except Exception:
                  pass
-         # daily_settings official_work_minutes (PostgreSQL-safe)
-         try:
+
+         # daily_settings official_work_minutes (older installs) - PostgreSQL safe
+        try:
              res = conn.execute(text("""
                  SELECT 1
                  FROM information_schema.columns
@@ -248,9 +251,12 @@ def ensure_schema():
                    AND column_name = 'official_work_minutes'
              """)).fetchall()
              if not res:
-                 conn.execute(text("ALTER TABLE daily_settings ADD COLUMN official_work_minutes INT NOT NULL DEFAULT 480"))
-         except Exception:
-             pass       
+                 conn.execute(text(
+                     "ALTER TABLE daily_settings ADD COLUMN official_work_minutes INT NOT NULL DEFAULT 480"
+                 ))
+        except Exception:
+             pass
+        
         # attendance_early_leave_segments (per OUT->IN segment decisions)
         try:
             conn.execute(text("""
