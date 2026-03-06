@@ -3486,11 +3486,28 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
         .first()
     )
 
-    decision_late = getattr(adj, "decision_late", None) if adj else None
+        decision_late = getattr(adj, "decision_late", None) if adj else None
     decision_early = getattr(adj, "decision_early_leave", None) if adj else None
     decision_absence = getattr(adj, "decision_absence", None) if adj else None
+    decision_overtime = getattr(adj, "decision_overtime", None) if adj else None
 
-        # Defaults: nothing is deducted unless explicitly APPROVED.
+    # Compensation flow:
+    # use overtime minutes first to offset late / deficit, then the remainder can be payable overtime
+    late_after_comp = int(raw_late_minutes or 0)
+    deficit_after_comp = int(raw_early_leave_minutes or 0)
+    remaining_ot = int(raw_overtime_minutes or 0)
+
+    if adj and getattr(adj, "compensate_late", False) and remaining_ot > 0 and late_after_comp > 0:
+        used = min(remaining_ot, late_after_comp)
+        late_after_comp -= used
+        remaining_ot -= used
+
+    if adj and getattr(adj, "compensate_early_leave", False) and remaining_ot > 0 and deficit_after_comp > 0:
+        used = min(remaining_ot, deficit_after_comp)
+        deficit_after_comp -= used
+        remaining_ot -= used
+
+    # Defaults: nothing is deducted unless explicitly APPROVED.
     # Late (deduct only if APPROVED, after compensation)
     if raw_late_minutes > 0:
         if decision_late == "APPROVED":
@@ -3526,7 +3543,6 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
             overtime_minutes = int(payable_remaining)
         else:
             overtime_minutes = 0
-
     if raw_status == "ABSENT":
         if decision_absence == "APPROVED":
             status = "ABSENT"  # will be deducted
@@ -3569,6 +3585,9 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
         "decision_late": decision_late,
         "decision_early_leave": decision_early,
         "decision_absence": decision_absence,
+        "decision_overtime": decision_overtime,
+        "raw_overtime": int(raw_overtime_minutes or 0),
+        "overtime_after_comp": int(remaining_ot or 0),
         "early_leave": early_leave_minutes,
         "early_leave_seconds": early_leave_seconds,
         "early_leave_hms": early_leave_hms,
