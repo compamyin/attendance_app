@@ -4078,7 +4078,7 @@ def hr_report(request: Request, db: Session = Depends(get_db), date_str: str | N
         total_early_leave = 0
         late_days = 0
         total_overtime_raw = 0
-         total_early_leave_raw = 0 
+        total_early_leave_raw = 0 
         for i in range(days_in_month):
             d = first + timedelta(days=i)
             if upto and d > upto:
