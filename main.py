@@ -4518,7 +4518,7 @@ def hr_review_decide(
     if decision not in ("APPROVED", "REJECTED", "EXCUSED"):
         decision = "REJECTED"
 
-
+    stored_decision = "REJECTED" if decision == "EXCUSED" else decision
     # Early leave is decided per-segment (OUT->IN or OUT->End)
     segment_id_clean = (segment_id or "").strip()
     if kind == "early_leave" and segment_id_clean:
@@ -4539,24 +4539,29 @@ def hr_review_decide(
     adj = _get_or_create_adj(db, emp_id, d, u.id)
 
     note_clean = (note or "").strip()[:255]
+
     if kind == "late":
-       adj.decision_late = decision
-       adj.compensate_late = bool(compensate) if decision == "APPROVED" else False
-       adj.excuse_late = decision == "REJECTED"
-    
+        adj.decision_late = stored_decision
+        adj.compensate_late = bool(compensate)
+        adj.excuse_late = (decision == "EXCUSED")
+        if decision == "EXCUSED":
+            adj.compensate_late = False
+
     elif kind == "early_leave":
-       adj.decision_early_leave = decision
-       adj.compensate_early_leave = bool(compensate) if decision == "APPROVED" else False
-       adj.excuse_early_leave = decision == "REJECTED"
-    
+        adj.decision_early_leave = stored_decision
+        adj.compensate_early_leave = bool(compensate)
+        adj.excuse_early_leave = (decision == "EXCUSED")
+        if decision == "EXCUSED":
+            adj.compensate_early_leave = False
+
     elif kind == "absence":
-       adj.decision_absence = decision
-       adj.excuse_absence = decision == "REJECTED"
-      
+        adj.decision_absence = stored_decision
+        adj.excuse_absence = (decision == "EXCUSED")
+
     elif kind == "overtime":
-       adj.decision_overtime = decision
-       adj.excuse_overtime = decision == "REJECTED"
-    adj.updated_by_user_id = u.id
+        adj.decision_overtime = stored_decision
+        adj.excuse_overtime = (decision == "EXCUSED")
+        adj.updated_by_user_id = u.id
     db.add(adj)
     db.commit()
 
