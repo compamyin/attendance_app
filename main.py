@@ -152,17 +152,16 @@ def ensure_schema():
                     conn.execute(text("ALTER TABLE attendance_adjustments ADD COLUMN decision_overtime VARCHAR(20) NOT NULL DEFAULT 'PENDING'"))
                 if "excuse_overtime" not in adj_cols:
                     conn.execute(text("ALTER TABLE attendance_adjustments ADD COLUMN excuse_overtime BOOLEAN NOT NULL DEFAULT 0"))
+                
+                conn.execute(text("UPDATE attendance_adjustments SET decision_late='REJECTED' WHERE decision_late='EXCUSED'"))
+                conn.execute(text("UPDATE attendance_adjustments SET decision_early_leave='REJECTED' WHERE decision_early_leave='EXCUSED'"))
+                conn.execute(text("UPDATE attendance_adjustments SET decision_absence='REJECTED' WHERE decision_absence='EXCUSED'"))
+                conn.execute(text("UPDATE attendance_adjustments SET decision_overtime='REJECTED' WHERE decision_overtime='EXCUSED'")) 
     except Exception:
         pass
     
-    try:
-    with engine.begin() as conn:
-        conn.execute(text("UPDATE attendance_adjustments SET decision_late='REJECTED' WHERE decision_late='EXCUSED'"))
-        conn.execute(text("UPDATE attendance_adjustments SET decision_early_leave='REJECTED' WHERE decision_early_leave='EXCUSED'"))
-        conn.execute(text("UPDATE attendance_adjustments SET decision_absence='REJECTED' WHERE decision_absence='EXCUSED'"))
-        conn.execute(text("UPDATE attendance_adjustments SET decision_overtime='REJECTED' WHERE decision_overtime='EXCUSED'"))
-    except Exception:
-        pass 
+    
+        
       
        
         
