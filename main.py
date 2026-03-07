@@ -3605,7 +3605,7 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
     .filter(WorkDocumentation.employee_id == emp.id, WorkDocumentation.day_date == d)
     .order_by(WorkDocumentation.server_timestamp.asc())
     .all()
-)  
+    )  
     return {
         "date": d,
         "emp": emp,
@@ -3642,7 +3642,7 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
         "adj": adj,
         "work_docs": work_docs,
         "work_docs_count": len(work_docs),
-
+         }
     
 
 # ──────────────────────────────────────────────────────────────────────────────
