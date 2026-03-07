@@ -4404,23 +4404,23 @@ def hr_review_page(
                  "out_log": r.get("last_out_log"),
                  }
                    )
-                 # OVERTIME (pending)
-                 raw_ot = int(r.get("overtime_raw_min") or r.get("raw_overtime") or 0)
-                 ot_decision = (r.get("decision_overtime") or "PENDING").upper()
-                 ot_excused = bool(getattr(adj, "excuse_overtime", False)) if adj else False
-                 if raw_ot > 0 and ot_decision == "PENDING" and (not ot_excused):
-                     overtime_rows.append(
-                         {
-                             "emp": emp,
-                             "date": d.isoformat(),
-                             "work_duration": r.get("work_duration"),
-                             "work_minutes": int(r.get("work_minutes") or 0),
-                             "official_minutes": int((getattr(settings, "official_work_minutes", 480) if settings else 480) or 480),
-                             "minutes": raw_ot,
-                             "note": getattr(adj, "note", None) if adj else None,
-                             "in_log": r.get("first_in_log"),
-                             "out_log": r.get("last_out_log"),
-                         }
+            # OVERTIME (pending)
+            raw_ot = int(r.get("overtime_raw_min") or r.get("raw_overtime") or 0)
+            ot_decision = (r.get("decision_overtime") or "PENDING").upper()
+            ot_excused = bool(getattr(adj, "excuse_overtime", False)) if adj else False
+            if raw_ot > 0 and ot_decision == "PENDING" and (not ot_excused):
+                overtime_rows.append(
+                    {
+                        "emp": emp,
+                        "date": d.isoformat(),
+                        "work_duration": r.get("work_duration"),
+                        "work_minutes": int(r.get("work_minutes") or 0),
+                        "official_minutes": int((getattr(settings, "official_work_minutes", 480) if settings else 480) or 480),
+                        "minutes": raw_ot,
+                        "note": getattr(adj, "note", None) if adj else None,
+                        "in_log": r.get("first_in_log"),
+                        "out_log": r.get("last_out_log"),
+                        }
     )
     # Sort: newest day first, then employee_code
     try:
