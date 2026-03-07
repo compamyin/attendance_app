@@ -154,8 +154,19 @@ def ensure_schema():
                     conn.execute(text("ALTER TABLE attendance_adjustments ADD COLUMN excuse_overtime BOOLEAN NOT NULL DEFAULT 0"))
     except Exception:
         pass
-
-
+    
+    try:
+    with engine.begin() as conn:
+        conn.execute(text("UPDATE attendance_adjustments SET decision_late='REJECTED' WHERE decision_late='EXCUSED'"))
+        conn.execute(text("UPDATE attendance_adjustments SET decision_early_leave='REJECTED' WHERE decision_early_leave='EXCUSED'"))
+        conn.execute(text("UPDATE attendance_adjustments SET decision_absence='REJECTED' WHERE decision_absence='EXCUSED'"))
+        conn.execute(text("UPDATE attendance_adjustments SET decision_overtime='REJECTED' WHERE decision_overtime='EXCUSED'"))
+    except Exception:
+        pass 
+      
+       
+        
+      
 
 
 app = FastAPI()
