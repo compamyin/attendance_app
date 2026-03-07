@@ -3691,10 +3691,10 @@ def compute_day(db: Session, emp: Employee, d: date, settings: DailySettings, *,
     except Exception:
         ext_min = 0
     row["external_break_min"] = ext_min
-    r["overtime_raw_min"] = int(r.get("overtime_raw_min") or r.get("raw_overtime") or 0)
-    r["overtime_approved_min"] = int(r.get("overtime_approved_min") or r.get("overtime") or 0)
-    r["early_leave_raw_min"] = int(r.get("early_leave_raw_min") or r.get("raw_early_leave") or 0)
-    r["early_leave_approved_min"] = int(r.get("early_leave_approved_min") or r.get("early_leave") or 0)
+    row["overtime_raw_min"] = int(row.get("overtime_raw_min") or row.get("raw_overtime") or 0)
+    row["overtime_approved_min"] = int(row.get("overtime_approved_min") or row.get("overtime") or 0)
+    row["early_leave_raw_min"] = int(row.get("early_leave_raw_min") or row.get("raw_early_leave") or 0)
+    row["early_leave_approved_min"] = int(row.get("early_leave_approved_min") or row.get("early_leave") or 0)
     return row
 
 
