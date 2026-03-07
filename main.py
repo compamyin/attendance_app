@@ -4532,20 +4532,20 @@ def hr_review_decide(
     if kind == "late":
        adj.decision_late = decision
        adj.compensate_late = bool(compensate) if decision == "APPROVED" else False
-       adj.excuse_late = decision in ("REJECTED", "EXCUSED")
+       adj.excuse_late = decision == "REJECTED"
     
     elif kind == "early_leave":
        adj.decision_early_leave = decision
        adj.compensate_early_leave = bool(compensate) if decision == "APPROVED" else False
-       adj.excuse_early_leave = decision in ("REJECTED", "EXCUSED")
+       adj.excuse_early_leave = decision == "REJECTED"
     
     elif kind == "absence":
        adj.decision_absence = decision
-       adj.excuse_absence = decision in ("REJECTED", "EXCUSED")
+       adj.excuse_absence = decision == "REJECTED"
       
     elif kind == "overtime":
        adj.decision_overtime = decision
-       adj.excuse_overtime = decision in ("REJECTED", "EXCUSED")
+       adj.excuse_overtime = decision == "REJECTED"
     adj.updated_by_user_id = u.id
     db.add(adj)
     db.commit()
