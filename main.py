@@ -4541,27 +4541,26 @@ def hr_review_decide(
     note_clean = (note or "").strip()[:255]
 
     if kind == "late":
-        adj.decision_late = stored_decision
-        adj.compensate_late = bool(compensate)
-        adj.excuse_late = (decision == "EXCUSED")
-        if decision == "EXCUSED":
-            adj.compensate_late = False
+       adj.decision_late = stored_decision
+       adj.compensate_late = bool(compensate)
+       adj.excuse_late = (decision == "EXCUSED")
+       if decision == "EXCUSED":
+           adj.compensate_late = False
 
     elif kind == "early_leave":
-        adj.decision_early_leave = stored_decision
-        adj.compensate_early_leave = bool(compensate)
-        adj.excuse_early_leave = (decision == "EXCUSED")
-        if decision == "EXCUSED":
-            adj.compensate_early_leave = False
+       adj.decision_early_leave = stored_decision
+       adj.compensate_early_leave = bool(compensate)
+       adj.excuse_early_leave = (decision == "EXCUSED")
+       if decision == "EXCUSED":
+           adj.compensate_early_leave = False
 
     elif kind == "absence":
-        adj.decision_absence = stored_decision
-        adj.excuse_absence = (decision == "EXCUSED")
+       adj.decision_absence = stored_decision
+       adj.excuse_absence = (decision == "EXCUSED")
 
     elif kind == "overtime":
-        adj.decision_overtime = stored_decision
-        adj.excuse_overtime = (decision == "EXCUSED")
-        adj.updated_by_user_id = u.id
+       adj.decision_overtime = stored_decision
+       adj.excuse_overtime = (decision == "EXCUSED")
     db.add(adj)
     db.commit()
 
