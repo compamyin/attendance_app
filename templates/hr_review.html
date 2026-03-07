@@ -1,8 +1,7 @@
 {% extends "_modern_base.html" %}
 {% block title %}مراجعة المخالفات{% endblock %}
 {% block brand_title %}HR{% endblock %}
-{% block brand_subtitle %}مراجعة التأخير/المغادرة/الغياب{% endblock %}
-
+{% block brand_subtitle %}مراجعة التأخير/النقص/الغياب/الإضافي{% endblock %}
 {% block content %}
 {% set back_url = request.url.path %}{% if request.url.query %}{% set back_url = back_url ~ '?' ~ request.url.query %}{% endif %}
 <div class="container py-4">
@@ -91,7 +90,7 @@
                         <input type="hidden" name="kind" value="late">
                         <input type="hidden" name="date_str" value="{{ r.date }}">
                         <input type="hidden" name="emp_id" value="{{ r.emp.id }}">
-                        <input type="hidden" name="decision" value="APPROVED">
+                        <input type="hidden" name="decision" value="EXCUSED">
                         <button class="btn btn-success btn-sm">OK</button>
                       </form>
                       <form method="post" action="/hr/review/decide" class="d-inline">
@@ -127,7 +126,7 @@
         <div class="card-body">
           <h6 class="fw-bold mb-2">مراجعات المغادرة (Pending)</h6>
           <div class="text-muted" style="font-size: 12px;">
-            كل عملية مغادرة تُعرض كبند مستقل: خروج→دخول، أو خروج→نهاية الدوام إذا ما رجع.
+            يتم عرض نقص الدوام بناءً على مجموع الدوام الفعلي مقارنةً بالدوام الرسمي لليوم.
           </div>
           <div class="table-responsive mt-2">
             <table class="table table-sm table-dark table-striped align-middle mb-0">
@@ -135,9 +134,9 @@
                 <tr>
                   <th>التاريخ</th>
                   <th>الموظف</th>
-                  <th>وقت الخروج</th>
-                  <th>إلى</th>
-                  <th class="text-end">الدقائق</th>
+                  <th>الدوام الفعلي</th>
+                  <th>الرسمي</th>
+                  <th class="text-end">النقص</th>
                   <th>ملاحظة</th>
                   <th>فيديو</th>
                   <th class="text-end">إجراء</th>
@@ -151,16 +150,8 @@
                   <tr>
                     <td class="mono">{{ r.date }}</td>
                     <td>{{ r.emp.full_name }}</td>
-                    <td class="mono">
-                      {% if r.out_ts %}{{ r.out_ts.strftime("%H:%M:%S") }}{% else %}-{% endif %}
-                    </td>
-                    <td class="mono">
-                      {% if r.in_ts %}
-                        {{ r.in_ts.strftime("%H:%M:%S") }}
-                      {% else %}
-                        {{ r.end_ts.strftime("%H:%M:%S") }} <span class="text-muted">(نهاية الدوام)</span>
-                      {% endif %}
-                    </td>
+                    <td class="mono">{{ r.work_duration or '-' }}</td>
+                    <td class="mono">{{ '%02d:%02d'|format((r.official_minutes or 0)//60, (r.official_minutes or 0)%60) }}</td>
                     <td class="mono text-end">{{ r.minutes }}</td>
                     <td class="text-muted" style="max-width: 240px; white-space: normal;">
                       {{ r.note or "-" }}
