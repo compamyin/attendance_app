@@ -134,6 +134,8 @@
               <th>غياب</th>
               <th>تأخير (د)</th>
               <th>مغادرة (د)</th>
+              <th>إضافي (د)</th>
+              <th>مبلغ الإضافي</th>
               <th>بونص</th>
               <th>الراتب الأساسي</th>
               <th>الصافي</th>
@@ -156,6 +158,8 @@
                 </td>
                 <td>{{ r.present_days }}</td>
                 <td>{{ r.absent_days }}</td>
+                <td>{{ r.summary.overtime_minutes or 0 }}</td>
+                <td class="money">{{ '%.2f'|format(r.summary.overtime_add or 0) }}</td>
                 <td>{{ r.late_days }} ({{ r.late_minutes }} د)</td>
                 <td>{{ r.early_leave_minutes or 0 }}</td>
                 <td class="money">{{ '%.2f'|format(r.summary.bonus_add or 0) }}</td>
