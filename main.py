@@ -2460,8 +2460,7 @@ def hr_save_settings(
             created_by_user_id=u.id,
         )
         
-        db.add(ds)
-
+    db.add(ds)
     db.commit()
     return RedirectResponse(url="/hr/dashboard", status_code=302)
 
