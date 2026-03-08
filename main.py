@@ -3552,8 +3552,7 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
     # Defaults: nothing is deducted unless explicitly APPROVED.
     # Late (deduct only if APPROVED, after compensation)
     approved_late = int(raw_late_minutes or 0)
-    if int(work_minutes or 0) >= official_minutes:
-        approved_late = 0
+   
     
     if raw_late_minutes > 0:
        if decision_late == "APPROVED":
