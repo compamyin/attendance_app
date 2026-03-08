@@ -2459,8 +2459,8 @@ def hr_save_settings(
             official_work_minutes=int(round(float(official_hours or 8.0) * 60)),
             created_by_user_id=u.id,
         )
-        
-    db.add(ds)
+    if not existing:    
+        db.add(ds)
     db.commit()
     return RedirectResponse(url="/hr/dashboard", status_code=302)
 
@@ -3440,25 +3440,43 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
     except Exception:
         work_minutes = work_minutes  # keep whatever it was
     # Official duration (minutes) comes from settings (default 8 hours)
-    
     official_minutes = int(getattr(settings, "official_work_minutes", 480) if settings else 480)
     if official_minutes <= 0:
-       official_minutes = 480
-    # Raw overtime/deficit are based on total work_minutes (not on last_out after sched_end)
+        official_minutes = 480
+
+    # Minutes worked after scheduled end (used as a visible event for HR review)
+    post_shift_extra_minutes = 0
+    try:
+        if work_end:
+            sched_end_ts = datetime.combine(d, work_end)
+            for s in sessions:
+                i_log = s.get("in")
+                o_log = s.get("out")
+                i_ts = _as_naive(i_log.server_timestamp) if i_log else None
+                o_ts = _as_naive(o_log.server_timestamp) if o_log else None
+                if i_ts and o_ts and o_ts > sched_end_ts:
+                    extra_start = max(i_ts, sched_end_ts)
+                    post_shift_extra_minutes += max(0, int((o_ts - extra_start).total_seconds() // 60))
+    except Exception:
+        post_shift_extra_minutes = 0
+
     raw_work_minutes = int(work_minutes or 0)
     raw_overtime_minutes = max(0, raw_work_minutes - official_minutes)
+
+    # Review overtime pool:
+    # - normal overtime from total work over official hours
+    # - OR time worked after scheduled end (for cases like 08:15 -> 16:15)
+    review_overtime_minutes = max(int(raw_overtime_minutes or 0), int(post_shift_extra_minutes or 0))
+
     deficit_raw_minutes = 0
-    
-    # Only treat deficit when there is at least one complete session and the employee is present.
-    # ABSENT is handled separately.
     if work_minutes is not None:
-       deficit_raw_minutes = max(0, official_minutes - raw_work_minutes)
-    
-    # Apply minimum overtime threshold for PAYABLE overtime only (not for compensation)
-    payable_overtime_raw = int(raw_overtime_minutes)
-    if payable_overtime_raw < overtime_min:
-      payable_overtime_raw = 0
-    
+        deficit_raw_minutes = max(0, official_minutes - raw_work_minutes)
+
+    # Minimum threshold applies to normal overtime,
+    # but post-shift extra can still be reviewed even if below threshold.
+    payable_overtime_raw = int(review_overtime_minutes)
+    if payable_overtime_raw < overtime_min and int(post_shift_extra_minutes or 0) <= 0:
+        payable_overtime_raw = 0
     # NOTE: we no longer compute early leave as segments. Any shortfall from official_minutes is "deficit".
     early_leave_total_minutes = int(deficit_raw_minutes)
     early_leave_approved_minutes = 0
@@ -3517,7 +3535,7 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
             .filter(AttendanceAdjustment.employee_id == emp.id, AttendanceAdjustment.day_date == d)
             .first()
         ):
-            if raw_late_minutes > 0 or raw_early_leave_minutes > 0 or int(raw_overtime_minutes or 0) > 0 or raw_status == "ABSENT":
+            if raw_late_minutes > 0 or raw_early_leave_minutes > 0 or int(review_overtime_minutes or 0) > 0 or raw_status == "ABSENT":
                 new_adj = AttendanceAdjustment(employee_id=emp.id, day_date=d)
                 db.add(new_adj)
                 db.commit()
@@ -3537,7 +3555,7 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
     # use overtime minutes first to offset late / deficit, then the remainder can be payable overtime
     late_after_comp = int(raw_late_minutes or 0)
     deficit_after_comp = int(raw_early_leave_minutes or 0)
-    remaining_ot = int(raw_overtime_minutes or 0)
+        remaining_ot = int(review_overtime_minutes or 0)
 
     if adj and getattr(adj, "compensate_late", False) and remaining_ot > 0 and late_after_comp > 0:
         used = min(remaining_ot, late_after_comp)
@@ -3582,7 +3600,7 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
     # Payable overtime: remaining minutes after compensation + threshold + HR approval
     overtime_minutes = 0
     payable_remaining = int(remaining_ot)
-    if payable_remaining < overtime_min:
+    if payable_remaining < overtime_min and int(post_shift_extra_minutes or 0) <= 0:
         payable_remaining = 0
 
     if int(raw_overtime_minutes or 0) > 0:
@@ -3633,7 +3651,9 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
         "decision_early_leave": decision_early,
         "decision_absence": decision_absence,
         "decision_overtime": decision_overtime,
-        "raw_overtime": int(raw_overtime_minutes or 0),
+        "raw_overtime": int(review_overtime_minutes or 0),
+        "raw_overtime_from_total_work": int(raw_overtime_minutes or 0),
+        "post_shift_extra_minutes": int(post_shift_extra_minutes or 0),
         "overtime_after_comp": int(remaining_ot or 0),
         "early_leave": early_leave_minutes,
         "early_leave_seconds": early_leave_seconds,
@@ -3685,10 +3705,11 @@ def compute_day(db: Session, emp: Employee, d: date, settings: DailySettings, *,
         row["absence_approved_status"] = None
 
     # External break minutes (OUT -> next IN gaps)
+        # External break / leave events (OUT -> next IN gaps)
     ext_min = 0
+    ext_count = 0
     try:
         sess = row.get("sessions") or []
-        # sessions are list of {"in": AttendanceLog, "out": AttendanceLog|None}
         for i in range(len(sess) - 1):
             out_log = sess[i].get("out")
             next_in = sess[i + 1].get("in")
@@ -3696,10 +3717,15 @@ def compute_day(db: Session, emp: Employee, d: date, settings: DailySettings, *,
                 out_ts = _as_naive(out_log.server_timestamp)
                 in_ts = _as_naive(next_in.server_timestamp)
                 if out_ts and in_ts and in_ts > out_ts:
+                    ext_count += 1
                     ext_min += int((in_ts - out_ts).total_seconds() // 60)
     except Exception:
         ext_min = 0
+        ext_count = 0
+
     row["external_break_min"] = ext_min
+    row["external_break_count"] = ext_count
+    row["post_shift_extra_min"] = int(row.get("post_shift_extra_minutes") or 0)
     row["overtime_raw_min"] = int(row.get("overtime_raw_min") or row.get("raw_overtime") or 0)
     row["overtime_approved_min"] = int(row.get("overtime_approved_min") or row.get("overtime") or 0)
     row["early_leave_raw_min"] = int(row.get("early_leave_raw_min") or row.get("raw_early_leave") or 0)
@@ -4359,7 +4385,14 @@ def hr_review_page(
             if not r.get("sched_start") and not r.get("sched_end"):
                   continue
             adj = r.get("adj")
-            
+            review_note_parts = [
+                f"الدوام الفعلي: {r.get('work_duration') or '00:00'}",
+                f"المغادرات: {int(r.get('external_break_count') or 0)} مرة / {int(r.get('external_break_min') or 0)} د",
+                f"بعد نهاية الدوام: {int(r.get('post_shift_extra_min') or 0)} د",
+            ]
+            if adj and getattr(adj, "note", None):
+                review_note_parts.append(f"ملاحظة HR: {adj.note}")
+            review_note = " | ".join(review_note_parts)
             # EARLY LEAVE (pending) - show from computed raw minutes (no DB segments needed)
             raw_early = int(r.get("raw_early_leave") or 0)
             early_decision = (r.get("decision_early_leave") or "PENDING").upper()
@@ -4391,7 +4424,7 @@ def hr_review_page(
                     "sched_start": r.get("sched_start"),
                     "first_in": r.get("first_in"),
                     "minutes": raw_late,
-                    "note": getattr(adj, "note", None) if adj else None,
+                    "note": review_note,
                     "in_log": r.get("first_in_log"),
                     "out_log": r.get("last_out_log"),
             }
@@ -4408,7 +4441,7 @@ def hr_review_page(
                  "date": d.isoformat(),
                  "sched_start": r.get("sched_start"),
                  "sched_end": r.get("sched_end"),
-                 "note": getattr(adj, "note", None) if adj else None,
+                 "note": review_note,
                  "in_log": r.get("first_in_log"),
                  "out_log": r.get("last_out_log"),
                  }
@@ -4426,7 +4459,7 @@ def hr_review_page(
                         "work_minutes": int(r.get("work_minutes") or 0),
                         "official_minutes": int((getattr(settings, "official_work_minutes", 480) if settings else 480) or 480),
                         "minutes": raw_ot,
-                        "note": getattr(adj, "note", None) if adj else None,
+                        "note": review_note,
                         "in_log": r.get("first_in_log"),
                         "out_log": r.get("last_out_log"),
                         }
