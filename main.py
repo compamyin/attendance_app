@@ -2441,14 +2441,13 @@ def hr_save_settings(
         existing.early_leave_grace_minutes = int(early_leave_grace_minutes or 0)
         existing.overtime_grace_minutes = int(overtime_grace_minutes or 0)
         existing.overtime_min_minutes = int(overtime_min_minutes or 0)
-        official_work_minutes=int(round(float(official_hours or 8.0) * 60)),
         try:
            existing.official_work_minutes = int(round(float(official_hours or 8.0) * 60))
         except Exception:
            existing.official_work_minutes = 480
         existing.created_by_user_id = u.id
     else:
-        ds = DailySettings(
+      ds = DailySettings(
             date=d,
             is_holiday=holiday,
             work_start=start_t,
@@ -2457,8 +2456,10 @@ def hr_save_settings(
             early_leave_grace_minutes=int(early_leave_grace_minutes or 0),
             overtime_grace_minutes=int(overtime_grace_minutes or 0),
             overtime_min_minutes=int(overtime_min_minutes or 0),
+            official_work_minutes=int(round(float(official_hours or 8.0) * 60)),
             created_by_user_id=u.id,
         )
+        
         db.add(ds)
 
     db.commit()
