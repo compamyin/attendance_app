@@ -3555,7 +3555,7 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
     # use overtime minutes first to offset late / deficit, then the remainder can be payable overtime
     late_after_comp = int(raw_late_minutes or 0)
     deficit_after_comp = int(raw_early_leave_minutes or 0)
-        remaining_ot = int(review_overtime_minutes or 0)
+    remaining_ot = int(review_overtime_minutes or 0)
 
     if adj and getattr(adj, "compensate_late", False) and remaining_ot > 0 and late_after_comp > 0:
         used = min(remaining_ot, late_after_comp)
