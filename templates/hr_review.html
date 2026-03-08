@@ -245,6 +245,78 @@
       </div>
     </div>
 
+        <!-- OVERTIME -->
+    <div class="col-12">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <h6 class="fw-bold mb-2">مراجعات الإضافة (Pending)</h6>
+          <div class="table-responsive">
+            <table class="table table-sm table-dark table-striped align-middle mb-0">
+              <thead>
+                <tr>
+                  <th>التاريخ</th>
+                  <th>الموظف</th>
+                  <th>الدوام الفعلي</th>
+                  <th>الرسمي</th>
+                  <th class="text-end">الإضافي (دقيقة)</th>
+                  <th>ملاحظة</th>
+                  <th>فيديو</th>
+                  <th class="text-end">إجراء</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% if not overtime_rows %}
+                  <tr><td colspan="8" class="text-muted">لا يوجد مراجعات إضافة حالياً.</td></tr>
+                {% endif %}
+                {% for r in overtime_rows %}
+                  <tr>
+                    <td class="mono">{{ r.date }}</td>
+                    <td>{{ r.emp.full_name }}</td>
+                    <td class="mono">{{ r.work_duration or '-' }}</td>
+                    <td class="mono">{{ '%02d:%02d'|format((r.official_minutes or 0)//60, (r.official_minutes or 0)%60) }}</td>
+                    <td class="mono text-end">{{ r.minutes }}</td>
+                    <td class="text-muted" style="max-width: 240px; white-space: normal;">
+                      {{ r.note or "-" }}
+                    </td>
+                    <td class="text-nowrap">
+                      {% if r.in_log and r.in_log.video_path %}
+                        <a class="btn btn-sm btn-outline-success" target="_blank" href="/hr/log/{{ r.in_log.id }}">IN</a>
+                      {% else %}
+                        <span class="text-muted">—</span>
+                      {% endif %}
+
+                      {% if r.out_log and r.out_log.video_path %}
+                        <a class="btn btn-sm btn-outline-danger" target="_blank" href="/hr/log/{{ r.out_log.id }}">OUT</a>
+                      {% else %}
+                        <span class="text-muted">—</span>
+                      {% endif %}
+                    </td>
+                    <td class="text-end">
+                      <form method="post" action="/hr/review/decide" class="d-inline">
+                        <input type="hidden" name="back" value="{{ back_url }}">
+                        <input type="hidden" name="kind" value="overtime">
+                        <input type="hidden" name="date_str" value="{{ r.date }}">
+                        <input type="hidden" name="emp_id" value="{{ r.emp.id }}">
+                        <input type="hidden" name="decision" value="APPROVED">
+                        <button class="btn btn-success btn-sm">OK</button>
+                      </form>
+                      <form method="post" action="/hr/review/decide" class="d-inline">
+                        <input type="hidden" name="back" value="{{ back_url }}">
+                        <input type="hidden" name="kind" value="overtime">
+                        <input type="hidden" name="date_str" value="{{ r.date }}">
+                        <input type="hidden" name="emp_id" value="{{ r.emp.id }}">
+                        <input type="hidden" name="decision" value="REJECTED">
+                        <button class="btn btn-outline-light btn-sm">رفض</button>
+                      </form>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 {% endblock %}
