@@ -234,7 +234,7 @@
               <th>تأخير (د)</th>
               <th>مغادرة (د)</th>
               <th>إضافي (د)</th>
-              <th>مدة الدوام</th>
+              <th>مدة الدوام / التفاصيل</th>
               <th>سجل اليوم</th>
             </tr>
           </thead>
@@ -247,7 +247,11 @@
                 <td>{{ r.late or 0 }}</td>
                 <td>{{ r.early_leave or 0 }}</td>
                 <td>{{ r.overtime or 0 }}</td>
-                <td>{{ r.work_duration or '-' }}</td>
+                <td>
+                  <div class="mono">{{ r.work_duration or '-' }}</div>
+                  <div class="muted" style="font-size:12px;">مغادرات: {{ r.external_break_count or 0 }} / {{ r.external_break_min or 0 }} د</div>
+                  <div class="muted" style="font-size:12px;">بعد الدوام: {{ r.post_shift_extra_min or 0 }} د</div>
+                </td>
                 <td>
                   <div class="d-flex flex-wrap gap-2">
                   <button type="button" class="btn btn-sm btn-accent" onclick="openLogModal({{ loop.index }}, 'IN')">IN</button>
