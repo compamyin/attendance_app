@@ -2424,12 +2424,9 @@ def hr_save_settings(
         start_t = time.fromisoformat(work_start)
         end_t = time.fromisoformat(work_end)
     except Exception:
-        return RedirectResponse(url="/hr/dashboard", status_code=302)
-
+        return RedirectResponse(url="/hr/settings?err=parse", status_code=302)
     if end_t <= start_t:
-        # keep it simple, redirect with error via query param
-        return RedirectResponse(url="/hr/dashboard?err=bad_time", status_code=302)
-
+        return RedirectResponse(url="/hr/settings?err=bad_time", status_code=302)
     holiday = bool(is_holiday)
 
     existing = db.get(DailySettings, d)
