@@ -3471,9 +3471,7 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
     deficit_raw_minutes = 0
     if work_minutes is not None:
         deficit_raw_minutes = max(0, official_minutes - raw_work_minutes)
-        # إذا كان النقص ضمن سماحية المغادرة المبكرة => لا يعتبر نقص
-        if 0 < deficit_raw_minutes <= early_leave_grace:
-            deficit_raw_minutes = 0
+        
     # Minimum threshold applies to normal overtime,
     # but post-shift extra can still be reviewed even if below threshold.
     payable_overtime_raw = int(review_overtime_minutes)
@@ -3563,12 +3561,16 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
         used = min(remaining_ot, late_after_comp)
         late_after_comp -= used
         remaining_ot -= used
+    1
+    if adj and getattr(adj, "compensate_early_leave", False):
 
-    if adj and getattr(adj, "compensate_early_leave", False) and remaining_ot > 0 and deficit_after_comp > 0:
-        used = min(remaining_ot, deficit_after_comp)
-        deficit_after_comp -= used
-        remaining_ot -= used
+       if remaining_ot >= deficit_after_comp:
+           remaining_ot -= deficit_after_comp
+           deficit_after_comp = 0
 
+       else:
+           deficit_after_comp -= remaining_ot
+           remaining_ot = 0
     # Defaults: nothing is deducted unless explicitly APPROVED.
     # Late (deduct only if APPROVED, after compensation)
     approved_late = int(raw_late_minutes or 0)
