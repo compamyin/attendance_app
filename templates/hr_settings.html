@@ -33,22 +33,27 @@
         </div>
 
         <div class="row g-2">
-          <div class="col-12 col-md-4">
-            <label class="form-label">سماحية التأخير (دقيقة)</label>
-            <input type="number" name="grace_minutes" class="form-control" min="0" value="{{ grace_minutes }}">
-            <div class="muted" style="font-size:12px;">مثال: 10 دقائق يعني التأخير أقل من 10 ما ينحسب.</div>
-          </div>
-          <div class="col-12 col-md-4">
-            <label class="form-label">سماحية المغادرة المبكرة (دقيقة)</label>
-            <input type="number" name="early_leave_grace_minutes" class="form-control" min="0" value="{{ early_leave_grace_minutes }}">
-            <div class="muted" style="font-size:12px;">قبل نهاية الدوام ضمن هالمدة ما ينحسب مغادرة.</div>
-          </div>
-          <div class="col-12 col-md-4">
-            <label class="form-label">معامل الإضافي</label>
-            <input type="number" name="overtime_multiplier" class="form-control" step="0.1" min="1" value="{{ settings.overtime_multiplier if settings else 1.5 }}">
-            <div class="muted" style="font-size:12px;">1.5 = ساعة إضافي = ساعة * 150%.</div>
-          </div>
-        </div>
+  <div class="col-12 col-md-3">
+    <label class="form-label">سماحية التأخير (دقيقة)</label>
+    <input type="number" name="grace_minutes" class="form-control" min="0" value="{{ grace_minutes }}">
+    <div class="muted" style="font-size:12px;">مثال: 10 دقائق يعني التأخير أقل من 10 ما ينحسب.</div>
+  </div>
+  <div class="col-12 col-md-3">
+    <label class="form-label">سماحية المغادرة المبكرة (دقيقة)</label>
+    <input type="number" name="early_leave_grace_minutes" class="form-control" min="0" value="{{ early_leave_grace_minutes }}">
+    <div class="muted" style="font-size:12px;">قبل نهاية الدوام ضمن هالمدة ما ينحسب مغادرة.</div>
+  </div>
+  <div class="col-12 col-md-3">
+    <label class="form-label">ساعات الدوام الرسمية</label>
+    <input type="number" name="official_hours" class="form-control" step="0.5" min="0" value="{{ official_hours }}">
+    <div class="muted" style="font-size:12px;">مثال: 8 = 8 ساعات رسمية لليوم.</div>
+  </div>
+  <div class="col-12 col-md-3">
+    <label class="form-label">معامل الإضافي</label>
+    <input type="number" name="overtime_multiplier" class="form-control" step="0.1" min="1" value="{{ settings.overtime_multiplier if settings else 1.5 }}">
+    <div class="muted" style="font-size:12px;">1.5 = ساعة إضافي = ساعة * 150%.</div>
+  </div>
+</div>
 
         <div class="row g-2">
           <div class="col-12 col-md-6">
