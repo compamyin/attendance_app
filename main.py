@@ -3603,7 +3603,7 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
     if payable_remaining < overtime_min and int(post_shift_extra_minutes or 0) <= 0:
         payable_remaining = 0
 
-    if int(raw_overtime_minutes or 0) > 0:
+    if int(review_overtime_minutes or 0) > 0:
         if decision_overtime == "APPROVED" and not (adj and getattr(adj, "excuse_overtime", False)):
             overtime_minutes = int(payable_remaining)
         else:
@@ -4390,6 +4390,8 @@ def hr_review_page(
                 f"المغادرات: {int(r.get('external_break_count') or 0)} مرة / {int(r.get('external_break_min') or 0)} د",
                 f"بعد نهاية الدوام: {int(r.get('post_shift_extra_min') or 0)} د",
             ]
+            if int(r.get("post_shift_extra_min") or 0) > 0 or int(r.get("raw_overtime") or 0) > 0:
+                review_note_parts.append("يوجد وقت زائد قابل للتسوية من صفحة الإضافي")
             if adj and getattr(adj, "note", None):
                 review_note_parts.append(f"ملاحظة HR: {adj.note}")
             review_note = " | ".join(review_note_parts)
@@ -4407,7 +4409,7 @@ def hr_review_page(
                   "work_minutes": int(r.get("work_minutes") or 0),
                   "official_minutes": int((getattr(settings, "official_work_minutes", 480) if settings else 480) or 480),
                   "minutes": raw_early,
-                  "note": getattr(adj, "note", None) if adj else None,
+                  "note": review_note,
                   "in_log": r.get("first_in_log"),
                   "out_log": r.get("last_out_log"),
                }
@@ -4533,6 +4535,7 @@ def hr_review_decide(
     decision: str = Form(...),
     note: str = Form(None),
     compensate: str | None = Form(None),
+    compensate_target: str | None = Form(None),
     back: str = Form(None),
 ):
     try:
@@ -4574,14 +4577,12 @@ def hr_review_decide(
 
     if kind == "late":
        adj.decision_late = stored_decision
-       adj.compensate_late = bool(compensate)
        adj.excuse_late = (decision == "EXCUSED")
        if decision == "EXCUSED":
            adj.compensate_late = False
-
+    
     elif kind == "early_leave":
        adj.decision_early_leave = stored_decision
-       adj.compensate_early_leave = bool(compensate)
        adj.excuse_early_leave = (decision == "EXCUSED")
        if decision == "EXCUSED":
            adj.compensate_early_leave = False
@@ -4593,6 +4594,17 @@ def hr_review_decide(
     elif kind == "overtime":
        adj.decision_overtime = stored_decision
        adj.excuse_overtime = (decision == "EXCUSED")
+
+       # compensation source lives here, not in late/early review
+       adj.compensate_late = False
+       adj.compensate_early_leave = False
+
+       target = (compensate_target or "").strip().lower()
+       if stored_decision == "APPROVED":
+           if target == "late":
+               adj.compensate_late = True
+           elif target == "early_leave":
+               adj.compensate_early_leave = True
     db.add(adj)
     db.commit()
 
