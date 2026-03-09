@@ -158,10 +158,10 @@
                 </td>
                 <td>{{ r.present_days }}</td>
                 <td>{{ r.absent_days }}</td>
+                <td>{{ r.late_minutes or 0 }}</td>
+                <td>{{ r.early_leave_minutes or 0 }}</td>
                 <td>{{ r.summary.overtime_minutes or 0 }}</td>
                 <td class="money">{{ '%.2f'|format(r.summary.overtime_add or 0) }}</td>
-                <td>{{ r.late_days }} ({{ r.late_minutes }} د)</td>
-                <td>{{ r.early_leave_minutes or 0 }}</td>
                 <td class="money">{{ '%.2f'|format(r.summary.bonus_add or 0) }}</td>
                 <td class="money">{{ '%.2f'|format(r.summary.salary_monthly or 0) }}</td>
                 <td class="money" style="font-weight:800;">{{ '%.2f'|format(r.summary.total or 0) }}</td>
