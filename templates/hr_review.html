@@ -71,33 +71,7 @@
                     <td class="text-muted" style="max-width: 240px; white-space: normal;">
   {{ r.note or "-" }}
 </td>
-<td>
-  -
-</td>
-<td class="text-end">
-  <form method="post" action="/hr/review/decide" class="d-inline">
-    <input type="hidden" name="back" value="{{ back_url }}">
-    <input type="hidden" name="kind" value="early_leave">
-    <input type="hidden" name="date_str" value="{{ r.date }}">
-    <input type="hidden" name="emp_id" value="{{ r.emp.id }}">
-    {% if r.seg is defined and r.seg %}
-    <input type="hidden" name="segment_id" value="{{ r.seg.id }}">
-    {% endif %}
-    <input type="hidden" name="decision" value="APPROVED">
-    <button class="btn btn-success btn-sm">OK</button>
-  </form>
-  <form method="post" action="/hr/review/decide" class="d-inline">
-    <input type="hidden" name="back" value="{{ back_url }}">
-    <input type="hidden" name="kind" value="early_leave">
-    <input type="hidden" name="date_str" value="{{ r.date }}">
-    <input type="hidden" name="emp_id" value="{{ r.emp.id }}">
-    {% if r.seg is defined and r.seg %}
-    <input type="hidden" name="segment_id" value="{{ r.seg.id }}">
-    {% endif %}
-    <input type="hidden" name="decision" value="REJECTED">
-    <button class="btn btn-outline-light btn-sm">رفض</button>
-  </form>
-</td>
+<td class="text-nowrap">
   {% if r.in_log and r.in_log.video_path %}
     <a class="btn btn-sm btn-outline-success" target="_blank" href="/hr/log/{{ r.in_log.id }}">IN</a>
   {% else %}
@@ -110,24 +84,24 @@
     <span class="text-muted">—</span>
   {% endif %}
 </td>
-                    <td class="text-end">
-                      <form method="post" action="/hr/review/decide" class="d-inline">
-                        <input type="hidden" name="back" value="{{ back_url }}">
-                        <input type="hidden" name="kind" value="late">
-                        <input type="hidden" name="date_str" value="{{ r.date }}">
-                        <input type="hidden" name="emp_id" value="{{ r.emp.id }}">
-                        <input type="hidden" name="decision" value="APPROVED">
-                        <button class="btn btn-success btn-sm">OK</button>
-                      </form>
-                      <form method="post" action="/hr/review/decide" class="d-inline">
-                        <input type="hidden" name="back" value="{{ back_url }}">
-                        <input type="hidden" name="kind" value="late">
-                        <input type="hidden" name="date_str" value="{{ r.date }}">
-                        <input type="hidden" name="emp_id" value="{{ r.emp.id }}">
-                        <input type="hidden" name="decision" value="REJECTED">
-                        <button class="btn btn-outline-light btn-sm">رفض</button>
-                      </form>
-                    </td>
+<td class="text-end">
+  <form method="post" action="/hr/review/decide" class="d-inline">
+    <input type="hidden" name="back" value="{{ back_url }}">
+    <input type="hidden" name="kind" value="late">
+    <input type="hidden" name="date_str" value="{{ r.date }}">
+    <input type="hidden" name="emp_id" value="{{ r.emp.id }}">
+    <input type="hidden" name="decision" value="APPROVED">
+    <button class="btn btn-success btn-sm">OK</button>
+  </form>
+  <form method="post" action="/hr/review/decide" class="d-inline">
+    <input type="hidden" name="back" value="{{ back_url }}">
+    <input type="hidden" name="kind" value="late">
+    <input type="hidden" name="date_str" value="{{ r.date }}">
+    <input type="hidden" name="emp_id" value="{{ r.emp.id }}">
+    <input type="hidden" name="decision" value="REJECTED">
+    <button class="btn btn-outline-light btn-sm">رفض</button>
+  </form>
+</td>
                   </tr>
                 {% endfor %}
               </tbody>
@@ -173,6 +147,7 @@
                     <td class="text-muted" style="max-width: 240px; white-space: normal;">
                       {{ r.note or "-" }}
                     </td>
+                    <td>-</td>
                     <td class="text-end">
                       <form method="post" action="/hr/review/decide" class="d-inline">
                         <input type="hidden" name="back" value="{{ back_url }}">
