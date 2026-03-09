@@ -3409,12 +3409,14 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
 
     late_minutes = 0
     if first_in and work_start:
-        start_time_dt = datetime.combine(d, work_start)
-        late_after = start_time_dt + timedelta(minutes=grace)
-        first_in_ts = _as_naive(first_in.server_timestamp)
-        late_after_ts = _as_naive(late_after)
-        if first_in_ts and late_after_ts and first_in_ts > late_after_ts:
-            late_minutes = _ceil_minutes(int((first_in_ts - late_after_ts).total_seconds()))
+      start_time_dt = datetime.combine(d, work_start)
+      first_in_ts = _as_naive(first_in.server_timestamp)
+      if first_in_ts and first_in_ts > start_time_dt:
+          late_from_start = _ceil_minutes(int((first_in_ts - start_time_dt).total_seconds()))
+          # إذا ضمن السماحية => لا يوجد تأخير
+          if late_from_start > grace:
+              # إذا تجاوز السماحية => يتحسب من بداية الدوام الرسمي
+              late_minutes = int(late_from_start)
 
    
 
@@ -3463,12 +3465,15 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
     # Review overtime pool:
     # - normal overtime from total work over official hours
     # - OR time worked after scheduled end (for cases like 08:15 -> 16:15)
-    review_overtime_minutes = max(int(raw_overtime_minutes or 0), int(post_shift_extra_minutes or 0))
+    review_overtime_minutes = int(raw_overtime_minutes or 0)
+    has_overtime_review = review_overtime_minutes > 0 or int(post_shift_extra_minutes or 0) > 0
 
     deficit_raw_minutes = 0
     if work_minutes is not None:
         deficit_raw_minutes = max(0, official_minutes - raw_work_minutes)
-
+        # إذا كان النقص ضمن سماحية المغادرة المبكرة => لا يعتبر نقص
+        if 0 < deficit_raw_minutes <= early_leave_grace:
+            deficit_raw_minutes = 0
     # Minimum threshold applies to normal overtime,
     # but post-shift extra can still be reviewed even if below threshold.
     payable_overtime_raw = int(review_overtime_minutes)
@@ -3532,7 +3537,7 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
             .filter(AttendanceAdjustment.employee_id == emp.id, AttendanceAdjustment.day_date == d)
             .first()
         ):
-            if raw_late_minutes > 0 or raw_early_leave_minutes > 0 or int(review_overtime_minutes or 0) > 0 or raw_status == "ABSENT":
+            if raw_late_minutes > 0 or raw_early_leave_minutes > 0 or has_overtime_review or raw_status == "ABSENT":
                 new_adj = AttendanceAdjustment(employee_id=emp.id, day_date=d)
                 db.add(new_adj)
                 db.commit()
@@ -3600,7 +3605,7 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
     if payable_remaining < overtime_min and int(post_shift_extra_minutes or 0) <= 0:
         payable_remaining = 0
 
-    if int(review_overtime_minutes or 0) > 0:
+    if has_overtime_review:
         if decision_overtime == "APPROVED" and not (adj and getattr(adj, "excuse_overtime", False)):
             overtime_minutes = int(payable_remaining)
         else:
