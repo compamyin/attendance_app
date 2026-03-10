@@ -3,6 +3,7 @@ from pathlib import Path
 import uuid
 import json
 import math
+from datetime import date, datetime, timedelta, time
 from starlette.responses import RedirectResponse
 from sqlalchemy import Column, Integer, Date, DateTime, Enum, DECIMAL, Float, String
 from datetime import datetime, date, time, timedelta
@@ -3749,12 +3750,27 @@ def compute_day(db: Session, emp: Employee, d: date, settings: DailySettings, *,
         row["absence_approved_status"] = row.get("status")
     else:
         row["absence_approved_status"] = None
-
-    # External break minutes (OUT -> next IN gaps)
-        # External break / leave events (OUT -> next IN gaps)
-    ext_min = 0
+    
+    # مغادرات أثناء الدوام:
+    # = الدوام الرسمي - مدة العمل الفعلية - التأخير
+    # ولا يجوز أن تتجاوز ما تبقى من الشفت
     ext_count = 0
+    ext_min = 0
     try:
+        official_minutes = int(getattr(settings, "official_work_minutes", 480) if settings else 480)
+        if official_minutes <= 0:
+            official_minutes = 480
+
+        worked = int(row.get("work_minutes") or 0)
+        late_raw = int(row.get("late_raw_min") or 0)
+
+        ext_min = max(0, official_minutes - worked - late_raw)
+
+        # إذا أكمل أو تجاوز الدوام الرسمي، لا توجد مغادرات أثناء الدوام
+        if worked >= official_minutes:
+            ext_min = 0
+
+        # عدد المغادرات الفعلي يبقى من الجلسات نفسها
         sess = row.get("sessions") or []
         for i in range(len(sess) - 1):
             out_log = sess[i].get("out")
@@ -3764,11 +3780,9 @@ def compute_day(db: Session, emp: Employee, d: date, settings: DailySettings, *,
                 in_ts = _as_naive(next_in.server_timestamp)
                 if out_ts and in_ts and in_ts > out_ts:
                     ext_count += 1
-                    ext_min += int((in_ts - out_ts).total_seconds() // 60)
     except Exception:
         ext_min = 0
         ext_count = 0
-
     row["external_break_min"] = ext_min
     row["external_break_count"] = ext_count
     row["post_shift_extra_min"] = int(row.get("post_shift_extra_minutes") or 0)
@@ -4380,6 +4394,132 @@ def _parse_optional_minutes(v: str | None):
 
 
 @app.post("/hr/report/manual-save")
+def _validate_day_logs_sequence(logs):
+    valid_logs = [x for x in logs if getattr(x, "is_valid", True)]
+    valid_logs = sorted(valid_logs, key=lambda x: (x.server_timestamp or datetime.min, x.id or 0))
+
+    last_action = None
+    for lg in valid_logs:
+        action = (lg.action or "").upper()
+        if action not in ("IN", "OUT"):
+            return False, "نوع الحركة غير صالح"
+        if last_action == action:
+            return False, "لا يجوز وجود حركتين متتاليتين من نفس النوع"
+        last_action = action
+    return True, None
+
+
+@app.post("/hr/log/save")
+def hr_log_save(
+    request: Request,
+    db: Session = Depends(get_db),
+    emp_id: int = Form(...),
+    date_str: str = Form(...),
+    log_id: str | None = Form(None),
+    action: str = Form(...),
+    time_str: str = Form(...),
+    is_valid: str | None = Form(None),
+    note: str | None = Form(None),
+    next_url: str | None = Form(None),
+):
+    try:
+        u = get_current_hr_user(request, db)
+    except HTTPException:
+        return RedirectResponse(url="/hr/login", status_code=302)
+
+    try:
+        d = date.fromisoformat((date_str or "").strip())
+    except Exception:
+        raise HTTPException(status_code=400, detail="تاريخ غير صالح")
+
+    action = (action or "").strip().upper()
+    if action not in ("IN", "OUT"):
+        raise HTTPException(status_code=400, detail="نوع الحركة غير صالح")
+
+    try:
+        hh, mm = [int(x) for x in (time_str or "").split(":")[:2]]
+        new_ts = datetime.combine(d, time(hour=hh, minute=mm))
+    except Exception:
+        raise HTTPException(status_code=400, detail="وقت غير صالح")
+
+    log = None
+    if (log_id or "").strip():
+        log = db.get(AttendanceLog, int(log_id))
+        if not log:
+            raise HTTPException(status_code=404, detail="السجل غير موجود")
+        if int(log.employee_id) != int(emp_id):
+            raise HTTPException(status_code=400, detail="السجل لا يخص الموظف المحدد")
+    else:
+        log = AttendanceLog(
+            employee_id=emp_id,
+            day_date=d,
+            action=action,
+            server_timestamp=new_ts,
+            is_valid=True,
+        )
+        db.add(log)
+        db.flush()
+
+    old_action = log.action
+    old_ts = log.server_timestamp
+    old_valid = log.is_valid
+
+    log.action = action
+    log.server_timestamp = new_ts
+    log.day_date = d
+    log.is_valid = bool(is_valid)
+
+    db.flush()
+
+    day_logs = (
+        db.query(AttendanceLog)
+        .filter(
+            AttendanceLog.employee_id == emp_id,
+            AttendanceLog.day_date == d,
+        )
+        .all()
+    )
+
+    ok, err = _validate_day_logs_sequence(day_logs)
+    if not ok:
+        log.action = old_action
+        log.server_timestamp = old_ts
+        log.is_valid = old_valid
+        db.rollback()
+        raise HTTPException(status_code=400, detail=err)
+
+    adj = (
+        db.query(AttendanceAdjustment)
+        .filter(
+            AttendanceAdjustment.employee_id == emp_id,
+            AttendanceAdjustment.day_date == d,
+        )
+        .first()
+    )
+    if not adj:
+        adj = AttendanceAdjustment(
+            employee_id=emp_id,
+            day_date=d,
+            updated_by_user_id=getattr(u, "id", None),
+        )
+        db.add(adj)
+
+    old_note = (adj.note or "").strip()
+    action_txt = "تعديل سجل" if (log_id or "").strip() else "إضافة سجل"
+    extra = f"{action_txt}: {action} {new_ts.strftime('%H:%M')}"
+    note_clean = (note or "").strip()
+    if note_clean:
+        extra += f" | {note_clean[:120]}"
+
+    adj.note = (old_note + " | " + extra).strip(" |")[:255]
+    adj.updated_by_user_id = getattr(u, "id", None)
+
+    db.commit()
+
+    return RedirectResponse(
+        url=(next_url or f"/hr/report?emp_id={emp_id}&date_str={d.isoformat()}"),
+        status_code=302,
+    )
 def hr_report_manual_save(
     request: Request,
     db: Session = Depends(get_db),
