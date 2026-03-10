@@ -710,14 +710,44 @@
               <th>مدة</th>
               <th>الموقع</th>
               <th>فيديو</th>
+              <th>تعديل</th>
             </tr>
           </thead>
           <tbody>
             {% for s in (r.sessions or []) %}
               <tr>
                 <td>{{ loop.index }}</td>
-                <td>{{ s.in.server_timestamp if s.in else '-' }}</td>
-                <td>{{ s.out.server_timestamp if s.out else '-' }}</td>
+
+                <td>
+                  {% if s.in %}
+                    <div>{{ s.in.server_timestamp.strftime('%H:%M') if s.in.server_timestamp else '-' }}</div>
+                    <button type="button"
+                            class="btn btn-sm btn-outline-primary mt-1"
+                            onclick="openLogEdit('{{ r.emp.id }}','{{ date }}','{{ s.in.id }}','IN','{{ s.in.server_timestamp.strftime('%H:%M') if s.in.server_timestamp else '' }}', true)">
+                      تعديل دخول
+                    </button>
+                  {% else %}
+                    -
+                  {% endif %}
+                </td>
+
+                <td>
+                  {% if s.out %}
+                    <div>{{ s.out.server_timestamp.strftime('%H:%M') if s.out.server_timestamp else '-' }}</div>
+                    <button type="button"
+                            class="btn btn-sm btn-outline-warning mt-1"
+                            onclick="openLogEdit('{{ r.emp.id }}','{{ date }}','{{ s.out.id }}','OUT','{{ s.out.server_timestamp.strftime('%H:%M') if s.out.server_timestamp else '' }}', true)">
+                      تعديل خروج
+                    </button>
+                  {% else %}
+                    <span class="text-danger">لا يوجد خروج</span>
+                    <button type="button"
+                            class="btn btn-sm btn-success mt-1"
+                            onclick="openLogEdit('{{ r.emp.id }}','{{ date }}','','OUT','', true)">
+                      إضافة خروج
+                    </button>
+                  {% endif %}
+                </td>
                 <td>
                   {% if s.duration_min is not none %}
                     <span class="{% if s.duration_min < 2 %}text-danger fw-bold{% else %}text-muted{% endif %}">
@@ -982,4 +1012,65 @@
     select, option{background:#0f172a !important;color:#fff !important;}
   
 </style>
+<div class="modal fade" id="logEditModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <form method="post" action="/hr/log/save">
+        <div class="modal-header">
+          <h5 class="modal-title">تعديل / إضافة حركة</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+
+        <div class="modal-body">
+          <input type="hidden" name="emp_id" id="log_emp_id">
+          <input type="hidden" name="date_str" id="log_date_str">
+          <input type="hidden" name="log_id" id="log_id">
+          <input type="hidden" name="next_url" value="{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}">
+
+          <div class="mb-2">
+            <label class="form-label">نوع الحركة</label>
+            <select class="form-select" name="action" id="log_action" required>
+              <option value="IN">دخول</option>
+              <option value="OUT">خروج</option>
+            </select>
+          </div>
+
+          <div class="mb-2">
+            <label class="form-label">الوقت</label>
+            <input type="time" class="form-control" name="time_str" id="log_time_str" required>
+          </div>
+
+          <div class="form-check form-switch mb-2">
+            <input class="form-check-input" type="checkbox" id="log_is_valid" name="is_valid" value="1" checked>
+            <label class="form-check-label" for="log_is_valid">السجل صالح</label>
+          </div>
+
+          <div class="mb-2">
+            <label class="form-label">ملاحظة</label>
+            <input type="text" class="form-control" name="note" maxlength="255" placeholder="سبب التعديل أو الإضافة">
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary">حفظ</button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">إلغاء</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  function openLogEdit(empId, dateStr, logId, action, timeStr, isValid) {
+    document.getElementById("log_emp_id").value = empId || "";
+    document.getElementById("log_date_str").value = dateStr || "";
+    document.getElementById("log_id").value = logId || "";
+    document.getElementById("log_action").value = action || "IN";
+    document.getElementById("log_time_str").value = timeStr || "";
+    document.getElementById("log_is_valid").checked = !!isValid;
+
+    const modal = new bootstrap.Modal(document.getElementById("logEditModal"));
+    modal.show();
+  }
+</script>
 {% endblock %}
