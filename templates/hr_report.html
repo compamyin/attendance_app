@@ -128,19 +128,24 @@
       <div class="table-responsive">
         <table class="table align-middle">
           <thead>
-            <tr>
-              <th>الموظف</th>
-              <th>دوام</th>
-              <th>غياب</th>
-              <th>تأخير (د)</th>
-              <th>مغادرة (د)</th>
-              <th>إضافي (د)</th>
-              <th>مبلغ الإضافي</th>
-              <th>بونص</th>
-              <th>الراتب الأساسي</th>
-              <th>الصافي</th>
-              <th></th>
-            </tr>
+            
+  <tr>
+    <th>الموظف</th>
+    <th>دوام</th>
+    <th>غياب</th>
+    <th>تأخير (د)</th>
+    <th>نقص دوام (د)</th>
+    <th>إضافي (د)</th>
+    <th>خصم غياب</th>
+    <th>خصم تأخير</th>
+    <th>خصم نقص دوام</th>
+    <th>مبلغ الإضافي</th>
+    <th>بونص</th>
+    <th>الراتب الأساسي</th>
+    <th>الصافي</th>
+    <th></th>
+  </tr>
+
           </thead>
           <tbody>
             {% for r in rows %}
@@ -156,15 +161,18 @@
                     </div>
                   </div>
                 </td>
-                <td>{{ r.present_days }}</td>
-                <td>{{ r.absent_days }}</td>
-                <td>{{ r.late_minutes or 0 }}</td>
-                <td>{{ r.early_leave_minutes or 0 }}</td>
-                <td>{{ r.summary.overtime_minutes or 0 }}</td>
-                <td class="money">{{ '%.2f'|format(r.summary.overtime_add or 0) }}</td>
-                <td class="money">{{ '%.2f'|format(r.summary.bonus_add or 0) }}</td>
-                <td class="money">{{ '%.2f'|format(r.summary.salary_monthly or 0) }}</td>
-                <td class="money" style="font-weight:800;">{{ '%.2f'|format(r.summary.total or 0) }}</td>
+               <td>{{ r.present_days }}</td>
+<td>{{ r.absent_days }}</td>
+<td>{{ r.late_minutes or 0 }}</td>
+<td>{{ r.early_leave_minutes or 0 }}</td>
+<td>{{ r.summary.overtime_minutes or 0 }}</td>
+<td class="money">{{ '%.2f'|format(r.summary.absent_deduction or 0) }}</td>
+<td class="money">{{ '%.2f'|format(r.summary.late_deduction or 0) }}</td>
+<td class="money">{{ '%.2f'|format(r.summary.early_leave_deduction or 0) }}</td>
+<td class="money">{{ '%.2f'|format(r.summary.overtime_add or 0) }}</td>
+<td class="money">{{ '%.2f'|format(r.summary.bonus_add or 0) }}</td>
+<td class="money">{{ '%.2f'|format(r.summary.salary_monthly or 0) }}</td>
+<td class="money" style="font-weight:800;">{{ '%.2f'|format(r.summary.total or 0) }}</td>
                 <td class="text-end">
                   <a class="btn btn-sm btn-outline-primary" href="/hr/report?emp_id={{ r.emp.id }}&month={{ month }}">ملف/تقرير</a>
                 </td>
@@ -226,33 +234,37 @@
 
       <div class="table-responsive">
         <table class="table align-middle">
-          <thead>
-            <tr>
-              <th>التاريخ</th>
-              <th>دخول</th>
-              <th>خروج</th>
-              <th>تأخير (د)</th>
-              <th>مغادرة (د)</th>
-              <th>إضافي (د)</th>
-              <th>مدة الدوام / التفاصيل</th>
-              <th>سجل اليوم</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for r in rows %}
-              <tr {% if (r.late or 0) > 0 or (r.early_leave or 0) > 0 or r.status=='ABSENT' %}class="table-warning"{% endif %}>
-                <td>{{ r.date }}</td>
-                <td>{{ r.first_in.strftime('%H:%M') if r.first_in else '-' }}</td>
-                <td>{{ r.last_out.strftime('%H:%M') if r.last_out else '-' }}</td>
-                <td>{{ r.late or 0 }}</td>
-                <td>{{ r.early_leave or 0 }}</td>
-                <td>{{ r.overtime or 0 }}</td>
-                <td>
-                  <div class="mono">{{ r.work_duration or '-' }}</div>
-                  <div class="muted" style="font-size:12px;">مغادرات: {{ r.external_break_count or 0 }} / {{ r.external_break_min or 0 }} د</div>
-                  <div class="muted" style="font-size:12px;">بعد الدوام: {{ r.post_shift_extra_min or 0 }} د</div>
-                </td>
-                <td>
+  <thead>
+  <tr>
+    <th>التاريخ</th>
+    <th>دخول</th>
+    <th>خروج</th>
+    <th>تأخير (د)</th>
+    <th>مغادرات أثناء الدوام (د)</th>
+    <th>نقص دوام (د)</th>
+    <th>إضافي (د)</th>
+    <th>مدة الدوام / التفاصيل</th>
+    <th>سجل اليوم</th>
+  </tr>
+</thead>
+<tbody>
+  {% for r in rows %}
+    <tr {% if (r.late or 0) > 0 or (r.early_leave or 0) > 0 or r.status=='ABSENT' %}class="table-warning"{% endif %}>
+      <tr {% if (r.late or 0) > 0 or (r.early_leave or 0) > 0 or r.status=='ABSENT' %}class="table-warning"{% endif %}>
+  <td>{{ r.date }}</td>
+  <td>{{ r.first_in.strftime('%H:%M') if r.first_in else '-' }}</td>
+  <td>{{ r.last_out.strftime('%H:%M') if r.last_out else '-' }}</td>
+  <td>{{ r.late or 0 }}</td>
+  <td>{{ r.external_break_min or 0 }}</td>
+  <td>{{ r.early_leave or 0 }}</td>
+  <td>{{ r.overtime or 0 }}</td>
+  <td>
+    <div class="mono">{{ r.work_duration or '-' }}</div>
+    <div class="muted" style="font-size:12px;">عدد المغادرات: {{ r.external_break_count or 0 }}</div>
+    <div class="muted" style="font-size:12px;">بعد الدوام: {{ r.post_shift_extra_min or 0 }} د</div>
+  </td>
+  <td>
+      <td>
                   <div class="d-flex flex-wrap gap-2">
                   <button type="button" class="btn btn-sm btn-accent" onclick="openLogModal({{ loop.index }}, 'IN')">IN</button>
                   <button type="button" class="btn btn-sm btn-ghost" onclick="openLogModal({{ loop.index }}, 'OUT')">OUT</button>
