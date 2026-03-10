@@ -3379,7 +3379,7 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
             cand_in_ts = _as_naive(cand_in.server_timestamp)
             if cand_in_ts:
                late_anchor_in = cand_in
-                break
+               break
 
         if late_anchor_in is None:
             late_anchor_in = first_in
