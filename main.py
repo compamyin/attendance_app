@@ -138,8 +138,12 @@ def ensure_schema():
         with engine.begin() as conn:
             def _cols(table_name: str) -> set[str]:
                 try:
-                    rows = conn.execute(text(f"PRAGMA table_info({table_name})")).fetchall()
-                    return {str(r[1]) for r in rows}
+                    rows = conn.execute(text("""
+                        SELECT column_name
+                        FROM information_schema.columns
+                        WHERE table_name = :table_name
+                    """), {"table_name": table_name}).fetchall()
+                    return {str(r[0]) for r in rows}
                 except Exception:
                     return set()
 
