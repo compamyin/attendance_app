@@ -673,12 +673,13 @@
 
             <div class="col-12 col-md-3">
               <label class="form-label">حالة الغياب اليدوية</label>
-              <select class="form-select" name="absence_status">
-                <option value="">تلقائي</option>
-                <option value="PRESENT" {% if r.adj and r.adj.manual_absence_status == 'PRESENT' %}selected{% endif %}>حاضر</option>
-                <option value="ABSENT" {% if r.adj and r.adj.manual_absence_status == 'ABSENT' %}selected{% endif %}>غياب</option>
-                <option value="EXCUSED" {% if r.adj and r.adj.manual_absence_status == 'EXCUSED' %}selected{% endif %}>معذور</option>
-              </select>
+             <select class="form-select" name="absence_status">
+  <option value="">تلقائي</option>
+  <option value="PRESENT" {% if r.adj and r.adj.manual_absence_status == 'PRESENT' %}selected{% endif %}>حاضر</option>
+  <option value="PRESENT_TO_END">دوام إلى نهاية الدوام</option>
+  <option value="ABSENT" {% if r.adj and r.adj.manual_absence_status == 'ABSENT' %}selected{% endif %}>غياب</option>
+  <option value="EXCUSED" {% if r.adj and r.adj.manual_absence_status == 'EXCUSED' %}selected{% endif %}>معذور</option>
+</select>
             </div>
 
             <div class="col-12">
@@ -693,6 +694,25 @@
                 مسح التعديل اليدوي
               </button>
             </div>
+            <script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const manualForm = document.querySelector('form[action="/hr/report/manual-save"]');
+    if (!manualForm) return;
+
+    const absenceSelect = manualForm.querySelector('select[name="absence_status"]');
+    const earlyInput = manualForm.querySelector('input[name="early_leave_minutes"]');
+    if (!absenceSelect || !earlyInput) return;
+
+    function syncManualAbsenceMode() {
+      if (absenceSelect.value === 'PRESENT_TO_END') {
+        earlyInput.value = '0';
+      }
+    }
+
+    absenceSelect.addEventListener('change', syncManualAbsenceMode);
+    syncManualAbsenceMode();
+  });
+</script>
           </form>
         </div>
       </div>
