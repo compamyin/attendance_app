@@ -149,6 +149,10 @@ class AttendanceAdjustment(Base):
     decision_absence: Mapped[str] = mapped_column(Enum('PENDING','APPROVED','REJECTED', name="absence_decision_enum"), nullable=False, default='PENDING')
     excuse_early_leave: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     note: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    manual_late_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    manual_early_leave_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    manual_overtime_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    manual_absence_status: Mapped[str | None] = mapped_column(String(20), nullable=True)  # PRESENT / ABSENT / EXCUSED
 
     updated_by_user_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
     updated_at: Mapped[DateTime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
