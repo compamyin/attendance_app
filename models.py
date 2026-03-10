@@ -153,7 +153,7 @@ class AttendanceAdjustment(Base):
     manual_early_leave_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
     manual_overtime_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
     manual_absence_status: Mapped[str | None] = mapped_column(String(20), nullable=True)  # PRESENT / ABSENT / EXCUSED
-
+    manual_day_mode: Mapped[str | None] = mapped_column(String(30), nullable=True)  # AUTO / PRESENT / PRESENT_TO_END / ABSENT / EXCUSED
     updated_by_user_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
     updated_at: Mapped[DateTime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
 
