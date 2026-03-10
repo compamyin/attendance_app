@@ -152,6 +152,15 @@ def ensure_schema():
                     conn.execute(text("ALTER TABLE attendance_adjustments ADD COLUMN decision_overtime VARCHAR(20) NOT NULL DEFAULT 'PENDING'"))
                 if "excuse_overtime" not in adj_cols:
                     conn.execute(text("ALTER TABLE attendance_adjustments ADD COLUMN excuse_overtime BOOLEAN NOT NULL DEFAULT 0"))
+                if "manual_late_minutes" not in adj_cols:
+                    conn.execute(text("ALTER TABLE attendance_adjustments ADD COLUMN manual_late_minutes INTEGER NULL"))
+                if "manual_early_leave_minutes" not in adj_cols:
+                    conn.execute(text("ALTER TABLE attendance_adjustments ADD COLUMN manual_early_leave_minutes INTEGER NULL"))
+                if "manual_overtime_minutes" not in adj_cols:
+                    conn.execute(text("ALTER TABLE attendance_adjustments ADD COLUMN manual_overtime_minutes INTEGER NULL"))
+                if "manual_absence_status" not in adj_cols:
+                    conn.execute(text("ALTER TABLE attendance_adjustments ADD COLUMN manual_absence_status VARCHAR(20) NULL"))
+
                 
                 conn.execute(text("UPDATE attendance_adjustments SET decision_late='REJECTED' WHERE decision_late='EXCUSED'"))
                 conn.execute(text("UPDATE attendance_adjustments SET decision_early_leave='REJECTED' WHERE decision_early_leave='EXCUSED'"))
@@ -3550,7 +3559,40 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
     decision_early = getattr(adj, "decision_early_leave", None) if adj else None
     decision_absence = getattr(adj, "decision_absence", None) if adj else None
     decision_overtime = getattr(adj, "decision_overtime", None) if adj else None
+        # Manual overrides from HR report page
+    manual_late = getattr(adj, "manual_late_minutes", None) if adj else None
+    manual_early = getattr(adj, "manual_early_leave_minutes", None) if adj else None
+    manual_ot = getattr(adj, "manual_overtime_minutes", None) if adj else None
+    manual_abs = (getattr(adj, "manual_absence_status", None) or "").strip().upper() if adj else ""
 
+    if manual_late is not None:
+        raw_late_minutes = max(0, int(manual_late or 0))
+
+    if manual_early is not None:
+        raw_early_leave_minutes = max(0, int(manual_early or 0))
+        early_leave_seconds = int(raw_early_leave_minutes * 60)
+        if early_leave_seconds > 0:
+            h = early_leave_seconds // 3600
+            rem = early_leave_seconds % 3600
+            mm = rem // 60
+            ss = rem % 60
+            early_leave_hms = f"{h:02d}:{mm:02d}:{ss:02d}"
+        else:
+            early_leave_hms = None
+
+    if manual_ot is not None:
+        review_overtime_minutes = max(0, int(manual_ot or 0))
+        has_overtime_review = review_overtime_minutes > 0
+
+    if manual_abs == "PRESENT":
+        raw_status = "PRESENT"
+        status = "PRESENT"
+    elif manual_abs == "ABSENT":
+        raw_status = "ABSENT"
+        status = "ABSENT"
+    elif manual_abs == "EXCUSED":
+        raw_status = "ABSENT"
+        status = "EXCUSED"
     # Compensation flow:
     # use overtime minutes first to offset late / deficit, then the remainder can be payable overtime
     late_after_comp = int(raw_late_minutes or 0)
@@ -4327,7 +4369,69 @@ def _get_or_create_adj(db: Session, emp_id: int, d: date, user_id: int | None):
     return adj
 
 
+def _parse_optional_minutes(v: str | None):
+    s = (v or "").strip()
+    if s == "":
+        return None
+    try:
+        return max(0, int(float(s)))
+    except Exception:
+        return None
 
+
+@app.post("/hr/report/manual-save")
+def hr_report_manual_save(
+    request: Request,
+    db: Session = Depends(get_db),
+    emp_id: int = Form(...),
+    date_str: str = Form(...),
+    late_minutes: str | None = Form(None),
+    early_leave_minutes: str | None = Form(None),
+    overtime_minutes: str | None = Form(None),
+    absence_status: str | None = Form(None),
+    note: str | None = Form(None),
+    clear_manual: str | None = Form(None),
+    next_url: str | None = Form(None),
+):
+    try:
+        u = get_current_hr_user(request, db)
+    except HTTPException:
+        return RedirectResponse(url="/hr/login", status_code=302)
+
+    try:
+        d = date.fromisoformat((date_str or "").strip())
+    except Exception:
+        return RedirectResponse(url=(next_url or "/hr/report"), status_code=302)
+
+    adj = _get_or_create_adj(db, emp_id, d, getattr(u, "id", None))
+
+    if clear_manual:
+        adj.manual_late_minutes = None
+        adj.manual_early_leave_minutes = None
+        adj.manual_overtime_minutes = None
+        adj.manual_absence_status = None
+    else:
+        adj.manual_late_minutes = _parse_optional_minutes(late_minutes)
+        adj.manual_early_leave_minutes = _parse_optional_minutes(early_leave_minutes)
+        adj.manual_overtime_minutes = _parse_optional_minutes(overtime_minutes)
+
+        abs_clean = (absence_status or "").strip().upper()
+        if abs_clean in ("PRESENT", "ABSENT", "EXCUSED"):
+            adj.manual_absence_status = abs_clean
+        else:
+            adj.manual_absence_status = None
+
+    note_clean = (note or "").strip()
+    if note_clean:
+        old_note = (adj.note or "").strip()
+        extra = f"تعديل يدوي من التقرير: {note_clean}"
+        adj.note = (old_note + " | " + extra).strip(" |")[:255]
+
+    adj.updated_by_user_id = getattr(u, "id", None)
+    db.add(adj)
+    db.commit()
+
+    return RedirectResponse(url=(next_url or f"/hr/report?emp_id={emp_id}&date_str={d.isoformat()}"), status_code=302)
 @app.get("/hr/review", response_class=HTMLResponse)
 def hr_review_page(
     request: Request,
