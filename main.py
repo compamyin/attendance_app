@@ -161,7 +161,8 @@ def ensure_schema():
                     conn.execute(text("ALTER TABLE attendance_adjustments ADD COLUMN manual_overtime_minutes INTEGER NULL"))
                 if "manual_absence_status" not in adj_cols:
                     conn.execute(text("ALTER TABLE attendance_adjustments ADD COLUMN manual_absence_status VARCHAR(20) NULL"))
-
+                if "manual_day_mode" not in adj_cols:
+                    conn.execute(text("ALTER TABLE attendance_adjustments ADD COLUMN manual_day_mode VARCHAR(30) NULL"))
                 
                 conn.execute(text("UPDATE attendance_adjustments SET decision_late='REJECTED' WHERE decision_late='EXCUSED'"))
                 conn.execute(text("UPDATE attendance_adjustments SET decision_early_leave='REJECTED' WHERE decision_early_leave='EXCUSED'"))
@@ -3564,20 +3565,24 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
         .filter(AttendanceAdjustment.employee_id == emp.id, AttendanceAdjustment.day_date == d)
         .first()
     )
-    
     decision_late = getattr(adj, "decision_late", None) if adj else None
     decision_early = getattr(adj, "decision_early_leave", None) if adj else None
     decision_absence = getattr(adj, "decision_absence", None) if adj else None
     decision_overtime = getattr(adj, "decision_overtime", None) if adj else None
-        # Manual overrides from HR report page
+
+    # Manual overrides from HR report page
     manual_late = getattr(adj, "manual_late_minutes", None) if adj else None
     manual_early = getattr(adj, "manual_early_leave_minutes", None) if adj else None
     manual_ot = getattr(adj, "manual_overtime_minutes", None) if adj else None
     manual_abs = (getattr(adj, "manual_absence_status", None) or "").strip().upper() if adj else ""
+    manual_day_mode = (getattr(adj, "manual_day_mode", None) or "").strip().upper() if adj else ""
+
     manual_late_override = manual_late is not None
     manual_early_override = manual_early is not None
     manual_ot_override = manual_ot is not None
     manual_abs_override = manual_abs in ("PRESENT", "ABSENT", "EXCUSED")
+    manual_day_override = manual_day_mode in ("AUTO", "PRESENT", "PRESENT_TO_END", "ABSENT", "EXCUSED")
+    
     if manual_late is not None:
         raw_late_minutes = max(0, int(manual_late or 0))
 
@@ -3596,14 +3601,20 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
     if manual_ot is not None:
         review_overtime_minutes = max(0, int(manual_ot or 0))
         has_overtime_review = review_overtime_minutes > 0
-
-    if manual_abs == "PRESENT":
+    
+    if manual_day_mode == "PRESENT_TO_END":
         raw_status = "PRESENT"
         status = "PRESENT"
-    elif manual_abs == "ABSENT":
+        raw_early_leave_minutes = 0
+        early_leave_seconds = 0
+        early_leave_hms = None
+    elif manual_abs == "PRESENT" or manual_day_mode == "PRESENT":
+        raw_status = "PRESENT"
+        status = "PRESENT"
+    elif manual_abs == "ABSENT" or manual_day_mode == "ABSENT":
         raw_status = "ABSENT"
         status = "ABSENT"
-    elif manual_abs == "EXCUSED":
+    elif manual_abs == "EXCUSED" or manual_day_mode == "EXCUSED":
         raw_status = "ABSENT"
         status = "EXCUSED"
     # Compensation flow:
@@ -3682,15 +3693,18 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
             status = "ABSENT_PENDING"
 
     # Explicit excuses always win
+    # Legacy excuses apply only when no manual override exists
     early_leave_segments = []
     if adj:
-        if adj.excuse_late:
+        if adj.excuse_late and not manual_late_override:
             late_minutes = 0
-        if getattr(adj, "excuse_early_leave", False):
+
+        if getattr(adj, "excuse_early_leave", False) and not manual_early_override and manual_day_mode != "PRESENT_TO_END":
             early_leave_minutes = 0
             early_leave_seconds = 0
             early_leave_hms = None
-        if adj.excuse_absence and raw_status == "ABSENT":
+        
+        if adj.excuse_absence and raw_status == "ABSENT" and not manual_abs_override and not manual_day_override:
             status = "EXCUSED"
     work_docs = (
     db.query(WorkDocumentation)
@@ -3801,6 +3815,11 @@ def compute_day(db: Session, emp: Employee, d: date, settings: DailySettings, *,
     except Exception:
         ext_min = 0
         ext_count = 0
+     
+    if manual_day_mode == "PRESENT_TO_END":
+       early_leave_minutes = 0
+       early_leave_seconds = 0
+       early_leave_hms = None
     row["external_break_min"] = ext_min
     row["external_break_count"] = ext_count
     row["post_shift_extra_min"] = int(row.get("post_shift_extra_minutes") or 0)
@@ -4528,6 +4547,7 @@ def hr_report_manual_save(
     absence_status: str | None = Form(None),
     note: str | None = Form(None),
     clear_manual: str | None = Form(None),
+    day_mode: str | None = Form(None),
     next_url: str | None = Form(None),
 ):
     try:
@@ -4542,33 +4562,41 @@ def hr_report_manual_save(
 
     adj = _get_or_create_adj(db, emp_id, d, getattr(u, "id", None))
     if clear_manual:
-        adj.manual_late_minutes = None
-        adj.manual_early_leave_minutes = None
-        adj.manual_overtime_minutes = None
-        adj.manual_absence_status = None
+       adj.manual_late_minutes = None
+       adj.manual_early_leave_minutes = None
+       adj.manual_overtime_minutes = None
+       adj.manual_absence_status = None
+       adj.manual_day_mode = None
     else:
-        abs_clean = (absence_status or "").strip().upper()
-
+        mode_clean = (day_mode or absence_status or "").strip().upper()
         parsed_late = _parse_optional_minutes(late_minutes)
         parsed_early = _parse_optional_minutes(early_leave_minutes)
         parsed_ot = _parse_optional_minutes(overtime_minutes)
 
-        # Convenience mode from HR report page:
-        # "دوام إلى نهاية الدوام" = employee is present and has no early leave,
-        # while still allowing HR to set late/overtime manually.
-        if abs_clean == "PRESENT_TO_END":
+        if mode_clean in ("AUTO", "PRESENT", "PRESENT_TO_END", "ABSENT", "EXCUSED"):
+            adj.manual_day_mode = mode_clean
+        else:
+            adj.manual_day_mode = None
+
+        # الوضع اليدوي
+        if adj.manual_day_mode == "AUTO" or not adj.manual_day_mode:
+            adj.manual_absence_status = None
+            adj.manual_early_leave_minutes = parsed_early
+        elif adj.manual_day_mode == "PRESENT":
+            adj.manual_absence_status = "PRESENT"
+            adj.manual_early_leave_minutes = parsed_early
+        elif adj.manual_day_mode == "PRESENT_TO_END":
             adj.manual_absence_status = "PRESENT"
             adj.manual_early_leave_minutes = 0
-        else:
+        elif adj.manual_day_mode == "ABSENT":
+            adj.manual_absence_status = "ABSENT"
             adj.manual_early_leave_minutes = parsed_early
-            if abs_clean in ("PRESENT", "ABSENT", "EXCUSED"):
-                adj.manual_absence_status = abs_clean
-            else:
-                adj.manual_absence_status = None
-
+        elif adj.manual_day_mode == "EXCUSED":
+            adj.manual_absence_status = "EXCUSED"
+            adj.manual_early_leave_minutes = parsed_early
+        
         adj.manual_late_minutes = parsed_late
         adj.manual_overtime_minutes = parsed_ot
-
     note_clean = (note or "").strip()
     if note_clean:
         old_note = (adj.note or "").strip()
