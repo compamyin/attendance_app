@@ -3604,7 +3604,7 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
         used = min(remaining_ot, late_after_comp)
         late_after_comp -= used
         remaining_ot -= used
-    1
+    
     if adj and getattr(adj, "compensate_early_leave", False):
 
        if remaining_ot >= deficit_after_comp:
