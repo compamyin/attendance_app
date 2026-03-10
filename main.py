@@ -4202,28 +4202,8 @@ def hr_report(request: Request, db: Session = Depends(get_db), date_str: str | N
             total_early_leave_raw += int(r.get("raw_early_leave") or 0)
             total_overtime += int(r.get("overtime") or 0)
             total_overtime_raw += int(r.get("raw_overtime") or 0)
-        if e.id in rec_map:
-            rec = rec_map[e.id]
-            summary = {
-                "salary_monthly": rec.salary_monthly,
-                "days_present": rec.days_present,
-                "days_absent": rec.days_absent,
-                "late_minutes": rec.late_minutes,
-                "early_leave_minutes": rec.early_leave_minutes,
-                "overtime_minutes": rec.overtime_minutes,
-                "absent_deduction": rec.absent_deduction,
-                "late_deduction": rec.late_deduction,
-                "early_leave_deduction": rec.early_leave_deduction,
-                "manual_adjustments_total": rec.manual_adjustments_total,
-                "overtime_add": rec.overtime_add,
-                "bonus_add": rec.bonus_add,
-                "total_deductions": rec.total_deductions,
-                "total_additions": rec.total_additions,
-                "adjustments_total": rec.adjustments_total,
-                "total": rec.total,
-            }
-        else:
-            summary, _breakdown = compute_month(db, e, year, mon, default_settings, upto=upto)
+        
+        summary, _breakdown = compute_month(db, e, year, mon, default_settings, upto=upto)
 
         row = {
             "emp": e,
