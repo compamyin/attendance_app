@@ -3610,7 +3610,19 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
     if manual_ot is not None:
         review_overtime_minutes = max(0, int(manual_ot or 0))
         has_overtime_review = review_overtime_minutes > 0
+     
+    adj = (
+        db.query(AttendanceAdjustment)
+        .filter(
+            AttendanceAdjustment.employee_id == emp.id,
+            AttendanceAdjustment.day_date == d,
+        )
+        .first()
+    )
     
+    manual_day_mode = None
+    if adj:
+        manual_day_mode = getattr(adj, "manual_day_mode", None)
     if manual_day_mode == "PRESENT_TO_END":
         raw_status = "PRESENT"
         status = "PRESENT"
