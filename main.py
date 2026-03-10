@@ -4393,7 +4393,6 @@ def _parse_optional_minutes(v: str | None):
         return None
 
 
-@app.post("/hr/report/manual-save")
 def _validate_day_logs_sequence(logs):
     valid_logs = [x for x in logs if getattr(x, "is_valid", True)]
     valid_logs = sorted(valid_logs, key=lambda x: (x.server_timestamp or datetime.min, x.id or 0))
@@ -4407,7 +4406,6 @@ def _validate_day_logs_sequence(logs):
             return False, "لا يجوز وجود حركتين متتاليتين من نفس النوع"
         last_action = action
     return True, None
-
 
 @app.post("/hr/log/save")
 def hr_log_save(
@@ -4520,6 +4518,7 @@ def hr_log_save(
         url=(next_url or f"/hr/report?emp_id={emp_id}&date_str={d.isoformat()}"),
         status_code=302,
     )
+@app.post("/hr/report/manual-save")
 def hr_report_manual_save(
     request: Request,
     db: Session = Depends(get_db),
@@ -4544,22 +4543,33 @@ def hr_report_manual_save(
         return RedirectResponse(url=(next_url or "/hr/report"), status_code=302)
 
     adj = _get_or_create_adj(db, emp_id, d, getattr(u, "id", None))
-
-    if clear_manual:
+        if clear_manual:
         adj.manual_late_minutes = None
         adj.manual_early_leave_minutes = None
         adj.manual_overtime_minutes = None
         adj.manual_absence_status = None
     else:
-        adj.manual_late_minutes = _parse_optional_minutes(late_minutes)
-        adj.manual_early_leave_minutes = _parse_optional_minutes(early_leave_minutes)
-        adj.manual_overtime_minutes = _parse_optional_minutes(overtime_minutes)
-
         abs_clean = (absence_status or "").strip().upper()
-        if abs_clean in ("PRESENT", "ABSENT", "EXCUSED"):
-            adj.manual_absence_status = abs_clean
+
+        parsed_late = _parse_optional_minutes(late_minutes)
+        parsed_early = _parse_optional_minutes(early_leave_minutes)
+        parsed_ot = _parse_optional_minutes(overtime_minutes)
+
+        # Convenience mode from HR report page:
+        # "دوام إلى نهاية الدوام" = employee is present and has no early leave,
+        # while still allowing HR to set late/overtime manually.
+        if abs_clean == "PRESENT_TO_END":
+            adj.manual_absence_status = "PRESENT"
+            adj.manual_early_leave_minutes = 0
         else:
-            adj.manual_absence_status = None
+            adj.manual_early_leave_minutes = parsed_early
+            if abs_clean in ("PRESENT", "ABSENT", "EXCUSED"):
+                adj.manual_absence_status = abs_clean
+            else:
+                adj.manual_absence_status = None
+
+        adj.manual_late_minutes = parsed_late
+        adj.manual_overtime_minutes = parsed_ot
 
     note_clean = (note or "").strip()
     if note_clean:
