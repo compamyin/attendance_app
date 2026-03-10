@@ -3341,7 +3341,6 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
 
     first_in = next((l for l in logs if l.action == "IN"), None)
     last_out = next((l for l in reversed(logs) if l.action == "OUT"), None)
-    
 
     in_logs = [l for l in logs if l.action == "IN"]
     out_logs = [l for l in logs if l.action == "OUT"]
@@ -3371,7 +3370,18 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
             duration_min = None
 
         sessions.append({"in": i_log, "out": out_log, "duration_sec": duration_sec, "duration_min": duration_min})
-    
+        late_anchor_in = None
+        for s in sessions:
+            cand_in = s.get("in")
+            if cand_in is None:
+                continue
+            cand_in_ts = _as_naive(cand_in.server_timestamp)
+            if cand_in_ts:
+               late_anchor_in = cand_in
+                break
+
+        if late_anchor_in is None:
+            late_anchor_in = first_in
 
     if settings and settings.is_holiday:
         return {
@@ -3416,17 +3426,16 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
     overtime_grace = max(overtime_grace, 0)
     overtime_min = int((getattr(settings, "overtime_min_minutes", 30) if settings else 30) or 0)
     overtime_min = max(overtime_min, 0)
-
+    
     late_minutes = 0
-    if first_in and work_start:
+    if late_anchor_in and work_start:
       start_time_dt = datetime.combine(d, work_start)
-      first_in_ts = _as_naive(first_in.server_timestamp)
-      if first_in_ts and first_in_ts > start_time_dt:
-          late_from_start = _ceil_minutes(int((first_in_ts - start_time_dt).total_seconds()))
-          # إذا ضمن السماحية => لا يوجد تأخير
-          if late_from_start > grace:
-              # إذا تجاوز السماحية => يتحسب من بداية الدوام الرسمي
-              late_minutes = int(late_from_start)
+      late_in_ts = _as_naive(late_anchor_in.server_timestamp)
+      
+      if late_in_ts and late_in_ts > start_time_dt:
+         late_from_start = _ceil_minutes(int((late_in_ts - start_time_dt).total_seconds()))
+         if late_from_start > grace:
+             late_minutes = int(late_from_start)
 
    
 
