@@ -163,7 +163,7 @@
                 </td>
                <td>{{ r.present_days }}</td>
 <td>{{ r.absent_days }}</td>
-<td>{{ r.late_minutes or 0 }}</td>
+<td>{{ r.late_raw_min or 0 }}</td>
 <td>{{ r.early_leave_minutes or 0 }}</td>
 <td>{{ r.summary.overtime_minutes or 0 }}</td>
 <td class="money">{{ '%.2f'|format(r.summary.absent_deduction or 0) }}</td>
