@@ -534,7 +534,7 @@
             </div>
             <div class="mt-2 d-flex gap-2">
               <form method="post" action="/hr/attendance/decision">
-                <input type="hidden" name="emp_id" value="{{ r.emp_id }}">
+                <input type="hidden" name="emp_id" value="{{ r.emp.id }}">
                 <input type="hidden" name="date_str" value="{{ date }}">
                 <input type="hidden" name="kind" value="late">
                 <input type="hidden" name="decision" value="ok">
@@ -543,7 +543,7 @@
                 <button class="btn btn-sm btn-danger">تطبيق الخصم</button>
               </form>
               <form method="post" action="/hr/attendance/decision">
-                <input type="hidden" name="emp_id" value="{{ r.emp_id }}">
+                <input type="hidden" name="emp_id" value="{{ r.emp.id }}">
                 <input type="hidden" name="date_str" value="{{ date }}">
                 <input type="hidden" name="kind" value="late">
                 <input type="hidden" name="decision" value="reject">
@@ -572,7 +572,7 @@
             </div>
             <div class="mt-2 d-flex gap-2">
               <form method="post" action="/hr/attendance/decision">
-                <input type="hidden" name="emp_id" value="{{ r.emp_id }}">
+                <input type="hidden" name="emp_id" value="{{ r.emp.id }}">
                 <input type="hidden" name="date_str" value="{{ date }}">
                 <input type="hidden" name="kind" value="early">
                 <input type="hidden" name="decision" value="ok">
@@ -581,7 +581,7 @@
                 <button class="btn btn-sm btn-danger">تطبيق الخصم</button>
               </form>
               <form method="post" action="/hr/attendance/decision">
-                <input type="hidden" name="emp_id" value="{{ r.emp_id }}">
+                <input type="hidden" name="emp_id" value="{{ r.emp.id }}">
                 <input type="hidden" name="date_str" value="{{ date }}">
                 <input type="hidden" name="kind" value="early">
                 <input type="hidden" name="decision" value="reject">
@@ -609,7 +609,7 @@
             </div>
             <div class="mt-2 d-flex gap-2">
               <form method="post" action="/hr/attendance/decision">
-                <input type="hidden" name="emp_id" value="{{ r.emp_id }}">
+                <input type="hidden" name="emp_id" value="{{ r.emp.id }}">
                 <input type="hidden" name="date_str" value="{{ date }}">
                 <input type="hidden" name="kind" value="absent">
                 <input type="hidden" name="decision" value="ok">
@@ -618,7 +618,7 @@
                 <button class="btn btn-sm btn-danger">تطبيق الخصم</button>
               </form>
               <form method="post" action="/hr/attendance/decision">
-                <input type="hidden" name="emp_id" value="{{ r.emp_id }}">
+                <input type="hidden" name="emp_id" value="{{ r.emp.id }}">
                 <input type="hidden" name="date_str" value="{{ date }}">
                 <input type="hidden" name="kind" value="absent">
                 <input type="hidden" name="decision" value="reject">
@@ -636,6 +636,64 @@
             <div class="fw-bold">{{ r.overtime_raw_min or 0 }} دقيقة</div>
             <div class="small text-muted">ملاحظة: قرار الإضافي يتم من صفحة المراجعات حالياً</div>
           </div>
+        </div>
+      </div>
+           
+
+      <div class="card mt-3 border-info">
+        <div class="card-body">
+          <div class="fw-bold mb-2">تعديل يدوي معتمد لليوم</div>
+          <div class="text-muted mb-3" style="font-size:13px;">
+            أي قيمة تضعها هنا ستصبح هي المعتمدة في التقرير + المراجعات + الرواتب.
+            اترك الحقل فارغًا = يرجع للحساب التلقائي.
+          </div>
+
+          <form method="post" action="/hr/report/manual-save" class="row g-2">
+            <input type="hidden" name="emp_id" value="{{ r.emp.id }}">
+            <input type="hidden" name="date_str" value="{{ date }}">
+            <input type="hidden" name="next_url" value="{{ request.url.path }}{% if request.url.query %}?{{ request.url.query }}{% endif %}">
+
+            <div class="col-12 col-md-3">
+              <label class="form-label">التأخير المعتمد (د)</label>
+              <input type="number" min="0" class="form-control" name="late_minutes"
+                     value="{{ r.adj.manual_late_minutes if r.adj and r.adj.manual_late_minutes is not none else r.late_raw_min }}">
+            </div>
+
+            <div class="col-12 col-md-3">
+              <label class="form-label">نقص الدوام المعتمد (د)</label>
+              <input type="number" min="0" class="form-control" name="early_leave_minutes"
+                     value="{{ r.adj.manual_early_leave_minutes if r.adj and r.adj.manual_early_leave_minutes is not none else r.early_leave_raw_min }}">
+            </div>
+
+            <div class="col-12 col-md-3">
+              <label class="form-label">الإضافي المعتمد (د)</label>
+              <input type="number" min="0" class="form-control" name="overtime_minutes"
+                     value="{{ r.adj.manual_overtime_minutes if r.adj and r.adj.manual_overtime_minutes is not none else r.overtime_raw_min }}">
+            </div>
+
+            <div class="col-12 col-md-3">
+              <label class="form-label">حالة الغياب اليدوية</label>
+              <select class="form-select" name="absence_status">
+                <option value="">تلقائي</option>
+                <option value="PRESENT" {% if r.adj and r.adj.manual_absence_status == 'PRESENT' %}selected{% endif %}>حاضر</option>
+                <option value="ABSENT" {% if r.adj and r.adj.manual_absence_status == 'ABSENT' %}selected{% endif %}>غياب</option>
+                <option value="EXCUSED" {% if r.adj and r.adj.manual_absence_status == 'EXCUSED' %}selected{% endif %}>معذور</option>
+              </select>
+            </div>
+
+            <div class="col-12">
+              <label class="form-label">ملاحظة</label>
+              <input type="text" class="form-control" name="note" maxlength="255" placeholder="سبب التعديل اليدوي">
+            </div>
+
+            <div class="col-12 d-flex gap-2">
+              <button class="btn btn-primary" type="submit">حفظ التعديل اليدوي</button>
+
+              <button class="btn btn-outline-danger" type="submit" name="clear_manual" value="1">
+                مسح التعديل اليدوي
+              </button>
+            </div>
+          </form>
         </div>
       </div>
 
