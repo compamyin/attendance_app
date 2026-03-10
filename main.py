@@ -3347,7 +3347,6 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
     out_logs = [l for l in logs if l.action == "OUT"]
     in_count = len(in_logs)
     out_count = len(out_logs)
-
     # Build simple sessions list by pairing each IN with the next OUT after it.
     # NOTE: we add duration_sec/duration_min for UI warnings (does NOT change payroll logic).
     sessions = []
@@ -3369,48 +3368,27 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
         except Exception:
             duration_sec = None
             duration_min = None
-         
-        # Build simple sessions list by pairing each IN with the next OUT after it.
-        # NOTE: we add duration_sec/duration_min for UI warnings (does NOT change payroll logic).
-        sessions = []
-        j = 0
-        for i_log in in_logs:
-            out_log = None
-            while j < len(out_logs) and _as_naive(out_logs[j].server_timestamp) and _as_naive(out_logs[j].server_timestamp) < _as_naive(i_log.server_timestamp):
-                j += 1
-            if j < len(out_logs):
-                out_log = out_logs[j]
-                j += 1
-                
-            duration_sec = None
-            duration_min = None
-            try:
-                if out_log and _as_naive(out_log.server_timestamp) and _as_naive(i_log.server_timestamp):
-                    duration_sec = int((_as_naive(out_log.server_timestamp) - _as_naive(i_log.server_timestamp)).total_seconds())
-                    duration_min = max(0, int(round(duration_sec / 60)))
-            except Exception:
-                duration_sec = None
-                duration_min = None
 
-            sessions.append({
-                "in": i_log,
-                "out": out_log,
-                "duration_sec": duration_sec,
-                "duration_min": duration_min,
-            })
+        sessions.append({
+            "in": i_log,
+            "out": out_log,
+            "duration_sec": duration_sec,
+            "duration_min": duration_min,
+        })
 
-        late_anchor_in = None
-        for s in sessions:
-            cand_in = s.get("in")
-            if cand_in is None:
-                continue
-            cand_in_ts = _as_naive(cand_in.server_timestamp)
-            if cand_in_ts:
-                late_anchor_in = cand_in
-                break
+    late_anchor_in = None
+    for s in sessions:
+        cand_in = s.get("in")
+        if cand_in is None:
+            continue
+        cand_in_ts = _as_naive(cand_in.server_timestamp)
+        if cand_in_ts:
+            late_anchor_in = cand_in
+            break
 
-        if late_anchor_in is None:
-            late_anchor_in = first_in
+    if late_anchor_in is None:
+        late_anchor_in = first_in
+    
     if settings and settings.is_holiday:
         return {
             "emp": emp,
