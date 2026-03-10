@@ -4543,7 +4543,7 @@ def hr_report_manual_save(
         return RedirectResponse(url=(next_url or "/hr/report"), status_code=302)
 
     adj = _get_or_create_adj(db, emp_id, d, getattr(u, "id", None))
-        if clear_manual:
+    if clear_manual:
         adj.manual_late_minutes = None
         adj.manual_early_leave_minutes = None
         adj.manual_overtime_minutes = None
