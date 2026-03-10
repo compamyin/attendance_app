@@ -3565,7 +3565,10 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
     manual_early = getattr(adj, "manual_early_leave_minutes", None) if adj else None
     manual_ot = getattr(adj, "manual_overtime_minutes", None) if adj else None
     manual_abs = (getattr(adj, "manual_absence_status", None) or "").strip().upper() if adj else ""
-
+    manual_late_override = manual_late is not None
+    manual_early_override = manual_early is not None
+    manual_ot_override = manual_ot is not None
+    manual_abs_override = manual_abs in ("PRESENT", "ABSENT", "EXCUSED")
     if manual_late is not None:
         raw_late_minutes = max(0, int(manual_late or 0))
 
@@ -3617,19 +3620,23 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
     # Defaults: nothing is deducted unless explicitly APPROVED.
     # Late (deduct only if APPROVED, after compensation)
     approved_late = int(raw_late_minutes or 0)
-   
+    
     
     if raw_late_minutes > 0:
-       if decision_late == "APPROVED":
-           late_minutes = int(min(approved_late, late_after_comp))
-       else:
-           late_minutes = 0
+        if manual_late_override:
+            late_minutes = int(late_after_comp)
+        elif decision_late == "APPROVED":
+            late_minutes = int(min(approved_late, late_after_comp))
+        else:
+            late_minutes = 0
     else:
         late_minutes = 0
 
     # Deficit/Early leave (deduct only if APPROVED, after compensation)
     if raw_early_leave_minutes > 0:
-        if decision_early == "APPROVED":
+        if manual_early_override:
+            early_leave_minutes = int(deficit_after_comp)
+        elif decision_early == "APPROVED":
             early_leave_minutes = int(deficit_after_comp)
         else:
             early_leave_minutes = 0
@@ -3649,13 +3656,15 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
     payable_remaining = int(remaining_ot)
     if payable_remaining < overtime_min and int(post_shift_extra_minutes or 0) <= 0:
         payable_remaining = 0
-
+    
     if has_overtime_review:
-        if decision_overtime == "APPROVED" and not (adj and getattr(adj, "excuse_overtime", False)):
+        if manual_ot_override:
+            overtime_minutes = int(payable_remaining)
+        elif decision_overtime == "APPROVED" and not (adj and getattr(adj, "excuse_overtime", False)):
             overtime_minutes = int(payable_remaining)
         else:
             overtime_minutes = 0
-    if raw_status == "ABSENT":
+    if raw_status == "ABSENT" and not manual_abs_override:
         if decision_absence == "APPROVED":
             status = "ABSENT"  # will be deducted
         elif decision_absence == "REJECTED" or (adj and getattr(adj, "excuse_absence", False)):
