@@ -207,9 +207,20 @@ async function recordVideo(durationMs){
   const s = await getStream();
 
   let mime = "";
-  if (MediaRecorder.isTypeSupported("video/webm;codecs=vp9")) mime = "video/webm;codecs=vp9";
-  else if (MediaRecorder.isTypeSupported("video/webm;codecs=vp8")) mime = "video/webm;codecs=vp8";
-  else if (MediaRecorder.isTypeSupported("video/webm")) mime = "video/webm";
+  let mime = "";
+  
+  // فضّل MP4 أولًا لأنه يعمل أفضل على أغلب الأجهزة والمتصفحات
+  if (MediaRecorder.isTypeSupported("video/mp4;codecs=h264")) {
+     mime = "video/mp4;codecs=h264";
+  } else if (MediaRecorder.isTypeSupported("video/mp4")) {
+     mime = "video/mp4";
+  } else if (MediaRecorder.isTypeSupported("video/webm;codecs=vp9")) {
+     mime = "video/webm;codecs=vp9";
+  } else if (MediaRecorder.isTypeSupported("video/webm;codecs=vp8")) {
+     mime = "video/webm;codecs=vp8";
+  } else if (MediaRecorder.isTypeSupported("video/webm")) {
+     mime = "video/webm";
+  }
 
   recorder = new MediaRecorder(
     s,
