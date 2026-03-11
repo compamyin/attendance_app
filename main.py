@@ -3836,7 +3836,24 @@ def compute_day(db: Session, emp: Employee, d: date, settings: DailySettings, *,
     except Exception:
         ext_min = 0
         ext_count = 0
-     
+    adj = row.get("adj")
+    manual_day_mode = ((getattr(adj, "manual_day_mode", None) or "").strip().upper() if adj else "")
+
+    if manual_day_mode == "PRESENT_TO_END":
+        row["raw_status"] = "PRESENT"
+        row["status"] = "PRESENT"
+
+        # لا يوجد نقص دوام عند اعتماد الدوام حتى نهاية الدوام
+        row["raw_early_leave"] = 0
+        row["early_leave"] = 0
+        row["early_leave_raw_min"] = 0
+        row["early_leave_approved_min"] = 0
+        row["early_leave_seconds"] = 0
+        row["early_leave_hms"] = None
+
+        # لا توجد مغادرات أثناء الدوام في هذه الحالة
+        ext_min = 0
+        ext_count = 0 
    
     row["external_break_min"] = ext_min
     row["external_break_count"] = ext_count
