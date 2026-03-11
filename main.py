@@ -490,12 +490,17 @@ def get_or_none_daily_settings(db: Session, d: date) -> DailySettings | None:
     return db.get(DailySettings, d)
 
 
-def enforce_daily_window(db: Session, when: datetime) -> DailySettings:
+def enforce_daily_window(db: Session, when: datetime) -> DailySettings | None:
     settings = get_or_none_daily_settings(db, when.date())
+
+    # إذا لا يوجد إعداد لليوم، اسمح بالتسجيل
     if not settings:
-        raise HTTPException(status_code=400, detail="الدوام غير مفعل اليوم. راجع HR/المدير.")
+        return None
+
+    # امنع فقط إذا اليوم عطلة
     if settings.is_holiday:
         raise HTTPException(status_code=400, detail="اليوم عطلة. لا يمكن التسجيل.")
+
     return settings
 
 
