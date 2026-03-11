@@ -487,8 +487,16 @@ def get_current_manager_user(request: Request, db: Session) -> User:
 # -------------------------
 
 def get_or_none_daily_settings(db: Session, d: date) -> DailySettings | None:
-    return db.get(DailySettings, d)
+    ettings = db.get(DailySettings, d)
+    if settings:
+        return settings
 
+    return (
+        db.query(DailySettings)
+        .filter(DailySettings.date <= d)
+        .order_by(DailySettings.date.desc())
+        .first()
+    )
 
 def enforce_daily_window(db: Session, when: datetime) -> DailySettings | None:
     settings = get_or_none_daily_settings(db, when.date())
