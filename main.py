@@ -487,7 +487,11 @@ def get_current_manager_user(request: Request, db: Session) -> User:
 # -------------------------
 
 def get_or_none_daily_settings(db: Session, d: date) -> DailySettings | None:
-    ettings = db.get(DailySettings, d)
+    return db.get(DailySettings, d)
+
+
+def get_effective_daily_settings(db: Session, d: date) -> DailySettings | None:
+    settings = db.get(DailySettings, d)
     if settings:
         return settings
 
@@ -497,7 +501,6 @@ def get_or_none_daily_settings(db: Session, d: date) -> DailySettings | None:
         .order_by(DailySettings.date.desc())
         .first()
     )
-
 def enforce_daily_window(db: Session, when: datetime) -> DailySettings | None:
     settings = get_or_none_daily_settings(db, when.date())
 
@@ -4135,7 +4138,7 @@ def hr_report(request: Request, db: Session = Depends(get_db), date_str: str | N
                 d = date.fromisoformat(date_str.strip())
             except Exception:
                 d = today_tz()
-            settings = get_or_none_daily_settings(db, d)
+            settings = get_effective_daily_settings(db, d)
             emp = db.get(Employee, emp_id_int)
             rows = []
             if emp:
