@@ -4619,29 +4619,30 @@ def hr_report_manual_save(
             adj.manual_late_minutes = parsed_late
             adj.manual_early_leave_minutes = parsed_early
             adj.manual_overtime_minutes = parsed_ot
+                
         elif adj.manual_day_mode == "PRESENT":
             adj.manual_absence_status = "PRESENT"
             adj.manual_late_minutes = parsed_late
             adj.manual_early_leave_minutes = parsed_early
             adj.manual_overtime_minutes = parsed_ot
+                
         elif adj.manual_day_mode == "PRESENT_TO_END":
             adj.manual_absence_status = "PRESENT"
-            adj.manual_late_minutes = 0
+            adj.manual_late_minutes = parsed_late
             adj.manual_early_leave_minutes = 0
             adj.manual_overtime_minutes = parsed_ot
+                        
         elif adj.manual_day_mode == "ABSENT":
             adj.manual_absence_status = "ABSENT"
             adj.manual_late_minutes = 0
             adj.manual_early_leave_minutes = 0
             adj.manual_overtime_minutes = parsed_ot
+                
         elif adj.manual_day_mode == "EXCUSED":
             adj.manual_absence_status = "EXCUSED"
             adj.manual_late_minutes = 0
             adj.manual_early_leave_minutes = 0
             adj.manual_overtime_minutes = parsed_ot
-        
-        adj.manual_late_minutes = parsed_late
-        adj.manual_overtime_minutes = parsed_ot
     note_clean = (note or "").strip()
     if note_clean:
         old_note = (adj.note or "").strip()
