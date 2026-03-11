@@ -3837,10 +3837,7 @@ def compute_day(db: Session, emp: Employee, d: date, settings: DailySettings, *,
         ext_min = 0
         ext_count = 0
      
-    if manual_day_mode == "PRESENT_TO_END":
-       early_leave_minutes = 0
-       early_leave_seconds = 0
-       early_leave_hms = None
+   
     row["external_break_min"] = ext_min
     row["external_break_count"] = ext_count
     row["post_shift_extra_min"] = int(row.get("post_shift_extra_minutes") or 0)
