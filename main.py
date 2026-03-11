@@ -3494,25 +3494,27 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
         post_shift_extra_minutes = 0
 
     raw_work_minutes = int(work_minutes or 0)
+
+    # الإضافي الحقيقي:
+    # 1) زيادة عن الساعات الرسمية
     raw_overtime_minutes = max(0, raw_work_minutes - official_minutes)
 
-    # Review overtime pool:
-    # - normal overtime from total work over official hours
-    # - OR time worked after scheduled end (for cases like 08:15 -> 16:15)
-    review_overtime_minutes = int(raw_overtime_minutes or 0)
-    has_overtime_review = review_overtime_minutes > 0 or int(post_shift_extra_minutes or 0) > 0
+    # 2) وقت بعد نهاية الدوام الرسمي (مع تطبيق سماحية الإضافي)
+    post_shift_review_minutes = max(0, int(post_shift_extra_minutes or 0) - int(overtime_grace or 0))
 
-    deficit_raw_minutes = 0
-    if work_minutes is not None:
-        deficit_raw_minutes = max(0, official_minutes - raw_work_minutes)
-        
-    # Minimum threshold applies to normal overtime,
-    # but post-shift extra can still be reviewed even if below threshold.
-    payable_overtime_raw = int(review_overtime_minutes)
-    if payable_overtime_raw < overtime_min and int(post_shift_extra_minutes or 0) <= 0:
-        payable_overtime_raw = 0
-    # NOTE: we no longer compute early leave as segments. Any shortfall from official_minutes is "deficit".
-    early_leave_total_minutes = int(deficit_raw_minutes)
+    # اعتمد الأكبر حتى تظهر مراجعة الإضافي بشكل صحيح
+    review_overtime_minutes = max(int(raw_overtime_minutes or 0), int(post_shift_review_minutes or 0))
+    has_overtime_review = review_overtime_minutes > 0
+
+    # المغادرة المبكرة:
+    # تُحسب من الخروج الفعلي قبل نهاية الدوام، وليس فقط من نقص الساعات
+    early_leave_segments = compute_early_leave_segments(
+        sessions=sessions,
+        d=d,
+        work_end=work_end,
+        early_leave_grace=early_leave_grace,
+    )
+    early_leave_total_minutes = sum(int(seg.get("minutes") or 0) for seg in early_leave_segments)
     early_leave_approved_minutes = 0
     early_leave_seconds = int(early_leave_total_minutes * 60) if early_leave_total_minutes > 0 else 0
     early_leave_hms = None
@@ -3700,7 +3702,7 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
     # Payable overtime: remaining minutes after compensation + threshold + HR approval
     overtime_minutes = 0
     payable_remaining = int(remaining_ot)
-    if payable_remaining < overtime_min and int(post_shift_extra_minutes or 0) <= 0:
+    if payable_remaining < overtime_min and int(post_shift_review_minutes or 0) <= 0:
         payable_remaining = 0
     
     if has_overtime_review:
@@ -3720,7 +3722,7 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
 
     # Explicit excuses always win
     # Legacy excuses apply only when no manual override exists
-    early_leave_segments = []
+    # لا تصفّر early_leave_segments هنا لأنه تم احتسابه فوق
     if adj:
         if adj.excuse_late and not manual_late_override:
             late_minutes = 0
