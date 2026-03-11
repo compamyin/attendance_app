@@ -332,3 +332,60 @@ class AttendanceEarlyLeaveSegment(Base):
     __table_args__ = (
         UniqueConstraint("employee_id", "day_date", "out_ts", "end_ts", name="uq_els_emp_day_out_end"),
     )
+class Invoice(Base):
+    __tablename__ = "invoices"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    employee_id: Mapped[int] = mapped_column(Integer, ForeignKey("employees.id"), nullable=False, index=True)
+
+    workshop_name: Mapped[str] = mapped_column(String(150), nullable=False)
+    location: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    invoice_date: Mapped[Date] = mapped_column(Date, nullable=False)
+
+    total_amount: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    image_total_amount: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    status: Mapped[str] = mapped_column(
+        Enum("DRAFT", "SUBMITTED", "UNDER_REVIEW", "APPROVED", "REJECTED", name="invoice_status_enum"),
+        nullable=False,
+        default="DRAFT",
+    )
+
+    hr_note: Mapped[str | None] = mapped_column(String(2000), nullable=True)
+    submitted_at: Mapped[DateTime | None] = mapped_column(DateTime, nullable=True)
+    reviewed_at: Mapped[DateTime | None] = mapped_column(DateTime, nullable=True)
+    reviewed_by_user_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
+
+    created_at: Mapped[DateTime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    updated_at: Mapped[DateTime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    employee = relationship("Employee")
+    reviewed_by = relationship("User")
+    items = relationship("InvoiceItem", back_populates="invoice", cascade="all, delete-orphan")
+    images = relationship("InvoiceImage", back_populates="invoice", cascade="all, delete-orphan")
+
+
+class InvoiceItem(Base):
+    __tablename__ = "invoice_items"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    invoice_id: Mapped[int] = mapped_column(Integer, ForeignKey("invoices.id"), nullable=False, index=True)
+
+    item_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    price: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    invoice = relationship("Invoice", back_populates="items")
+
+
+class InvoiceImage(Base):
+    __tablename__ = "invoice_images"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    invoice_id: Mapped[int] = mapped_column(Integer, ForeignKey("invoices.id"), nullable=False, index=True)
+
+    image_path: Mapped[str] = mapped_column(String(255), nullable=False)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    uploaded_at: Mapped[DateTime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+    invoice = relationship("Invoice", back_populates="images")
