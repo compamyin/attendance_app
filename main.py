@@ -4724,9 +4724,10 @@ def hr_review_page(
     # treat it as PENDING so HR can see it here (matches payroll "pending" behavior).
     for emp in employees:
         for d in days:
-            settings = get_or_none_daily_settings(db, d)
+            settings = get_effective_daily_settings(db, d)
             r = compute_day(db, emp, d, settings, write_db=False)
-            # ✅ Skip days with no schedule configured (prevents fake ABSENT on non-working days)
+            # ✅ إذا ما في إعدادات لليوم، خذ آخر إعداد موجود قبل هذا اليوم
+            # وإذا ما في أي إعداد نهائيًا، وقتها فقط تجاهل اليوم
             if not r.get("sched_start") and not r.get("sched_end"):
                   continue
             adj = r.get("adj")
