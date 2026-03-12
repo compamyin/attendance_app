@@ -16,12 +16,17 @@
       <div class="col-12 col-lg-5">
         <div class="card shadow-sm border-0 rounded-4">
           <div class="card-body">
-            <h6 class="mb-2">إرسال رسالة للموظف</h6>
-            <form method="post" action="{{ post_url }}">
+            <h6 class="mb-2">إرسال رسالة</h6>
+             <form method="post" action="{{ post_url }}" enctype="multipart/form-data">
 
-              <textarea class="form-control mb-2" name="body" rows="4" placeholder="اكتب رسالة..." required></textarea>
-              <button class="btn btn-primary w-100">إرسال</button>
-            </form>
+               <textarea class="form-control mb-2" name="body" rows="4" placeholder="اكتب رسالة..."></textarea>
+
+               {% if target_kind == "manager" %}
+                 <input class="form-control mb-2" type="file" name="attachment" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt">
+               {% endif %}
+
+               <button class="btn btn-primary w-100">إرسال</button>
+             </form>
           </div>
         </div>
       </div>
@@ -46,6 +51,21 @@
                       • {{ m.created_at }}
                     </div>
                     <div style="white-space:pre-wrap">{{ m.body }}</div>
+                    <div style="white-space:pre-wrap">{{ m.body }}</div>
+
+                    {% if m.attachment_path %}
+                      <div class="mt-2">
+                        {% if m.attachment_type and m.attachment_type.startswith("image/") %}
+                          <a href="/media/{{ m.attachment_path }}" target="_blank">
+                            <img src="/media/{{ m.attachment_path }}" alt="attachment" class="img-fluid rounded-3 border" style="max-height:220px">
+                          </a>
+                        {% else %}
+                          <a class="btn btn-sm btn-outline-primary mt-1" href="/media/{{ m.attachment_path }}" target="_blank">
+                            فتح المرفق{% if m.attachment_name %}: {{ m.attachment_name }}{% endif %}
+                          </a>
+                        {% endif %}
+                      </div>
+                    {% endif %}
                   </div>
                 {% endfor %}
               </div>
