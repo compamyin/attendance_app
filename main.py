@@ -35,6 +35,9 @@ from models import (
     PayrollBatch,
     PayrollRecord,
     AttendanceEarlyLeaveSegment,
+    Invoice,
+    InvoiceItem,
+    InvoiceImage,
 )
 from auth import hash_pin, verify_pin, create_token, verify_token
 from config import TIMEZONE_NAME
@@ -200,6 +203,8 @@ MEDIA_DIR =  BASE_DIR / "media"
 VIDEOS_DIR = MEDIA_DIR / "videos"
 PHOTOS_DIR = MEDIA_DIR / "photos"
 VIDEOS_DIR = MEDIA_DIR / "videos"
+INVOICES_DIR = MEDIA_DIR / "invoices"
+INVOICES_DIR.mkdir(parents=True, exist_ok=True)
 VIDEOS_DIR.mkdir(parents=True, exist_ok=True)
 PHOTOS_DIR.mkdir(parents=True, exist_ok=True)
 VIDEOS_DIR.mkdir(parents=True, exist_ok=True)
@@ -444,6 +449,44 @@ def get_current_hr_user(request: Request, db: Session) -> User:
     if u.role not in ("HR", "ADMIN"):
         raise HTTPException(status_code=403, detail="Forbidden")
     return u
+
+def invoice_employee_can_edit(inv: Invoice) -> bool:
+    return inv.status in ("DRAFT", "SUBMITTED", "UNDER_REVIEW", "REJECTED")
+
+def invoice_status_label_for_employee(status: str) -> str:
+    return {
+        "DRAFT": "مسودة",
+        "SUBMITTED": "تم الإرسال",
+        "UNDER_REVIEW": "تحت المراجعة",
+        "APPROVED": "مقبولة",
+        "REJECTED": "مرفوضة",
+    }.get(status, status)
+
+def invoice_status_label_for_hr(status: str) -> str:
+    return {
+        "DRAFT": "مسودة",
+        "SUBMITTED": "مرسلة",
+        "UNDER_REVIEW": "تحت المراجعة",
+        "APPROVED": "معتمدة",
+        "REJECTED": "مرفوضة",
+    }.get(status, status)
+
+def recalc_invoice_total(item_names: list[str], item_prices: list[str]) -> float:
+    total = 0.0
+    for name, price in zip(item_names, item_prices):
+        name = (name or "").strip()
+        if not name:
+            continue
+        try:
+            total += float(price or 0)
+        except Exception:
+            pass
+    return round(total, 2)
+
+
+
+
+
 
 def get_current_admin_user(request: Request, db: Session) -> User:
     token = request.cookies.get(ADMIN_COOKIE)
@@ -1228,6 +1271,398 @@ def me_payroll(request: Request, db: Session = Depends(get_db), month: str | Non
     }
 
     return templates.TemplateResponse("me_payroll.html", {"request": request, "employee": emp, "month": month, "calc": calc})
+
+
+@app.get("/me/invoices", response_class=HTMLResponse)
+def me_invoices(request: Request, db: Session = Depends(get_db)):
+    try:
+        emp = get_current_employee(request, db)
+    except HTTPException:
+        return RedirectResponse(url="/login", status_code=302)
+
+    invoices = (
+        db.query(Invoice)
+        .filter(Invoice.employee_id == emp.id)
+        .order_by(Invoice.created_at.desc(), Invoice.id.desc())
+        .all()
+    )
+
+    return templates.TemplateResponse(
+        "me_invoices.html",
+        {
+            "request": request,
+            "employee": emp,
+            "invoices": invoices,
+            "invoice_status_label_for_employee": invoice_status_label_for_employee,
+            "invoice_employee_can_edit": invoice_employee_can_edit,
+        },
+    )
+
+@app.get("/me/invoices/new", response_class=HTMLResponse)
+def me_invoice_new_page(request: Request, db: Session = Depends(get_db)):
+    try:
+        emp = get_current_employee(request, db)
+    except HTTPException:
+        return RedirectResponse(url="/login", status_code=302)
+
+    return templates.TemplateResponse(
+        "me_invoice_form.html",
+        {
+            "request": request,
+            "employee": emp,
+            "invoice": None,
+            "items": [],
+            "images": [],
+            "mode": "create",
+            "today_str": today_tz().strftime("%Y-%m-%d"),
+        },
+    )
+@app.post("/me/invoices/new", response_class=HTMLResponse)
+async def me_invoice_create(request: Request, db: Session = Depends(get_db)):
+    try:
+        emp = get_current_employee(request, db)
+    except HTTPException:
+        return RedirectResponse(url="/login", status_code=302)
+
+    form = await request.form()
+
+    workshop_name = str(form.get("workshop_name") or "").strip()
+    location = str(form.get("location") or "").strip()
+    invoice_date_str = str(form.get("invoice_date") or "").strip()
+    image_total_amount_raw = str(form.get("image_total_amount") or "").strip()
+    action = str(form.get("action") or "draft").strip()
+
+    item_names = form.getlist("item_name")
+    item_prices = form.getlist("item_price")
+    uploaded_files = form.getlist("invoice_images")
+
+    if not workshop_name:
+        return templates.TemplateResponse("me_invoice_form.html", {
+            "request": request, "employee": emp, "invoice": None, "items": [], "images": [],
+            "mode": "create", "today_str": today_tz().strftime("%Y-%m-%d"),
+            "error": "اسم الورشة مطلوب."
+        }, status_code=400)
+
+    try:
+        invoice_date = datetime.strptime(invoice_date_str, "%Y-%m-%d").date()
+    except Exception:
+        invoice_date = today_tz()
+
+    total_amount = recalc_invoice_total(item_names, item_prices)
+
+    image_total_amount = None
+    if image_total_amount_raw:
+        try:
+            image_total_amount = float(image_total_amount_raw)
+        except Exception:
+            image_total_amount = None
+
+    status = "DRAFT" if action == "draft" else "SUBMITTED"
+    submitted_at = now_tz().replace(tzinfo=None) if status == "SUBMITTED" else None
+
+    inv = Invoice(
+        employee_id=emp.id,
+        workshop_name=workshop_name,
+        location=location or None,
+        invoice_date=invoice_date,
+        total_amount=total_amount,
+        image_total_amount=image_total_amount,
+        status=status,
+        submitted_at=submitted_at,
+    )
+    db.add(inv)
+    db.flush()
+
+    sort_idx = 0
+    for name, price in zip(item_names, item_prices):
+        name = (name or "").strip()
+        if not name:
+            continue
+        try:
+            price_val = float(price or 0)
+        except Exception:
+            price_val = 0.0
+        db.add(InvoiceItem(
+            invoice_id=inv.id,
+            item_name=name,
+            price=price_val,
+            sort_order=sort_idx,
+        ))
+        sort_idx += 1
+
+    valid_images = [f for f in uploaded_files if getattr(f, "filename", None)]
+    if len(valid_images) == 0:
+        db.rollback()
+        return templates.TemplateResponse("me_invoice_form.html", {
+            "request": request, "employee": emp, "invoice": None, "items": [], "images": [],
+            "mode": "create", "today_str": today_tz().strftime("%Y-%m-%d"),
+            "error": "يجب رفع صورة فاتورة واحدة على الأقل."
+        }, status_code=400)
+
+    if len(valid_images) > 5:
+        db.rollback()
+        return templates.TemplateResponse("me_invoice_form.html", {
+            "request": request, "employee": emp, "invoice": None, "items": [], "images": [],
+            "mode": "create", "today_str": today_tz().strftime("%Y-%m-%d"),
+            "error": "الحد الأعلى 5 صور."
+        }, status_code=400)
+
+    for idx, up in enumerate(valid_images):
+        ext = Path(up.filename).suffix.lower()
+        if ext not in (".jpg", ".jpeg", ".png", ".webp"):
+            ext = ".jpg"
+        fname = f"inv_{emp.employee_code}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}{ext}"
+        out_path = INVOICES_DIR / fname
+        content = await up.read()
+        out_path.write_bytes(content)
+
+        rel_path = str(out_path.relative_to(MEDIA_DIR)).replace("\\", "/")
+        db.add(InvoiceImage(
+            invoice_id=inv.id,
+            image_path=rel_path,
+            sort_order=idx,
+        ))
+
+    db.commit()
+    return RedirectResponse(url="/me/invoices", status_code=302)
+@app.get("/me/invoices/{invoice_id}/edit", response_class=HTMLResponse)
+def me_invoice_edit_page(invoice_id: int, request: Request, db: Session = Depends(get_db)):
+    try:
+        emp = get_current_employee(request, db)
+    except HTTPException:
+        return RedirectResponse(url="/login", status_code=302)
+
+    inv = (
+        db.query(Invoice)
+        .filter(Invoice.id == invoice_id, Invoice.employee_id == emp.id)
+        .first()
+    )
+    if not inv:
+        raise HTTPException(status_code=404, detail="الفاتورة غير موجودة")
+
+    if not invoice_employee_can_edit(inv) or inv.status == "APPROVED":
+        raise HTTPException(status_code=400, detail="لا يمكن تعديل هذه الفاتورة")
+
+    items = db.query(InvoiceItem).filter(InvoiceItem.invoice_id == inv.id).order_by(InvoiceItem.sort_order.asc(), InvoiceItem.id.asc()).all()
+    images = db.query(InvoiceImage).filter(InvoiceImage.invoice_id == inv.id).order_by(InvoiceImage.sort_order.asc(), InvoiceImage.id.asc()).all()
+
+    return templates.TemplateResponse(
+        "me_invoice_form.html",
+        {
+            "request": request,
+            "employee": emp,
+            "invoice": inv,
+            "items": items,
+            "images": images,
+            "mode": "edit",
+            "today_str": today_tz().strftime("%Y-%m-%d"),
+        },
+    )
+@app.post("/me/invoices/{invoice_id}/edit", response_class=HTMLResponse)
+async def me_invoice_edit(invoice_id: int, request: Request, db: Session = Depends(get_db)):
+    try:
+        emp = get_current_employee(request, db)
+    except HTTPException:
+        return RedirectResponse(url="/login", status_code=302)
+
+    inv = (
+        db.query(Invoice)
+        .filter(Invoice.id == invoice_id, Invoice.employee_id == emp.id)
+        .first()
+    )
+    if not inv:
+        raise HTTPException(status_code=404, detail="الفاتورة غير موجودة")
+
+    if inv.status == "APPROVED":
+        raise HTTPException(status_code=400, detail="الفاتورة المعتمدة لا تعدل")
+
+    form = await request.form()
+    workshop_name = str(form.get("workshop_name") or "").strip()
+    location = str(form.get("location") or "").strip()
+    invoice_date_str = str(form.get("invoice_date") or "").strip()
+    image_total_amount_raw = str(form.get("image_total_amount") or "").strip()
+    action = str(form.get("action") or "draft").strip()
+
+    item_names = form.getlist("item_name")
+    item_prices = form.getlist("item_price")
+    uploaded_files = form.getlist("invoice_images")
+
+    if not workshop_name:
+        raise HTTPException(status_code=400, detail="اسم الورشة مطلوب")
+
+    try:
+        invoice_date = datetime.strptime(invoice_date_str, "%Y-%m-%d").date()
+    except Exception:
+        invoice_date = today_tz()
+
+    inv.workshop_name = workshop_name
+    inv.location = location or None
+    inv.invoice_date = invoice_date
+    inv.total_amount = recalc_invoice_total(item_names, item_prices)
+    inv.image_total_amount = float(image_total_amount_raw) if image_total_amount_raw else None
+
+    if action == "submit":
+        inv.status = "SUBMITTED"
+        inv.submitted_at = now_tz().replace(tzinfo=None)
+    else:
+        inv.status = "DRAFT"
+
+    db.query(InvoiceItem).filter(InvoiceItem.invoice_id == inv.id).delete()
+
+    sort_idx = 0
+    for name, price in zip(item_names, item_prices):
+        name = (name or "").strip()
+        if not name:
+            continue
+        try:
+            price_val = float(price or 0)
+        except Exception:
+            price_val = 0.0
+        db.add(InvoiceItem(
+            invoice_id=inv.id,
+            item_name=name,
+            price=price_val,
+            sort_order=sort_idx,
+        ))
+        sort_idx += 1
+
+    valid_images = [f for f in uploaded_files if getattr(f, "filename", None)]
+    if valid_images:
+        old_images = db.query(InvoiceImage).filter(InvoiceImage.invoice_id == inv.id).all()
+        for old in old_images:
+            try:
+                fpath = MEDIA_DIR / old.image_path
+                if fpath.exists():
+                    fpath.unlink(missing_ok=True)
+            except Exception:
+                pass
+        db.query(InvoiceImage).filter(InvoiceImage.invoice_id == inv.id).delete()
+
+        if len(valid_images) > 5:
+            raise HTTPException(status_code=400, detail="الحد الأعلى 5 صور")
+
+        for idx, up in enumerate(valid_images):
+            ext = Path(up.filename).suffix.lower()
+            if ext not in (".jpg", ".jpeg", ".png", ".webp"):
+                ext = ".jpg"
+            fname = f"inv_{emp.employee_code}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}{ext}"
+            out_path = INVOICES_DIR / fname
+            content = await up.read()
+            out_path.write_bytes(content)
+            rel_path = str(out_path.relative_to(MEDIA_DIR)).replace("\\", "/")
+            db.add(InvoiceImage(invoice_id=inv.id, image_path=rel_path, sort_order=idx))
+
+    if inv.status == "REJECTED" and action == "submit":
+        inv.status = "SUBMITTED"
+
+    db.commit()
+    return RedirectResponse(url="/me/invoices", status_code=302)
+@app.get("/hr/invoices", response_class=HTMLResponse)
+def hr_invoices(request: Request, db: Session = Depends(get_db)):
+    u = get_current_hr_user(request, db)
+
+    employees = (
+        db.query(Employee)
+        .join(Invoice, Invoice.employee_id == Employee.id)
+        .filter(Employee.is_active == True)
+        .distinct()
+        .order_by(Employee.full_name.asc())
+        .all()
+    )
+
+    rows = []
+    for emp in employees:
+        invoices = db.query(Invoice).filter(Invoice.employee_id == emp.id).all()
+        rows.append({
+            "employee": emp,
+            "count_all": len(invoices),
+            "count_new": len([x for x in invoices if x.status == "SUBMITTED"]),
+            "count_review": len([x for x in invoices if x.status == "UNDER_REVIEW"]),
+            "last_invoice_at": max([x.created_at for x in invoices], default=None),
+        })
+
+    return templates.TemplateResponse("hr_invoices.html", {
+        "request": request,
+        "user": u,
+        "rows": rows,
+        "invoice_status_label_for_hr": invoice_status_label_for_hr,
+    })
+@app.get("/hr/invoices/{emp_id}", response_class=HTMLResponse)
+def hr_employee_invoices(emp_id: int, request: Request, db: Session = Depends(get_db)):
+    u = get_current_hr_user(request, db)
+    emp = db.query(Employee).filter(Employee.id == emp_id).first()
+    if not emp:
+        raise HTTPException(status_code=404, detail="الموظف غير موجود")
+
+    invoices = (
+        db.query(Invoice)
+        .filter(Invoice.employee_id == emp.id)
+        .order_by(Invoice.created_at.desc(), Invoice.id.desc())
+        .all()
+    )
+
+    return templates.TemplateResponse("hr_employee_invoices.html", {
+        "request": request,
+        "user": u,
+        "employee_obj": emp,
+        "invoices": invoices,
+        "invoice_status_label_for_hr": invoice_status_label_for_hr,
+    })
+@app.get("/hr/invoice/{invoice_id}", response_class=HTMLResponse)
+def hr_invoice_detail(invoice_id: int, request: Request, db: Session = Depends(get_db)):
+    u = get_current_hr_user(request, db)
+
+    inv = db.query(Invoice).filter(Invoice.id == invoice_id).first()
+    if not inv:
+        raise HTTPException(status_code=404, detail="الفاتورة غير موجودة")
+
+    items = db.query(InvoiceItem).filter(InvoiceItem.invoice_id == inv.id).order_by(InvoiceItem.sort_order.asc(), InvoiceItem.id.asc()).all()
+    images = db.query(InvoiceImage).filter(InvoiceImage.invoice_id == inv.id).order_by(InvoiceImage.sort_order.asc(), InvoiceImage.id.asc()).all()
+
+    if inv.status == "SUBMITTED":
+        inv.status = "UNDER_REVIEW"
+        db.commit()
+
+    return templates.TemplateResponse("hr_invoice_detail.html", {
+        "request": request,
+        "user": u,
+        "invoice": inv,
+        "items": items,
+        "images": images,
+        "invoice_status_label_for_hr": invoice_status_label_for_hr,
+    })
+@app.post("/hr/invoice/{invoice_id}/decision")
+def hr_invoice_decision(
+    invoice_id: int,
+    request: Request,
+    action: str = Form(...),
+    hr_note: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    u = get_current_hr_user(request, db)
+
+    inv = db.query(Invoice).filter(Invoice.id == invoice_id).first()
+    if not inv:
+        raise HTTPException(status_code=404, detail="الفاتورة غير موجودة")
+
+    action = (action or "").strip()
+    note = (hr_note or "").strip()
+
+    if action == "approve":
+        inv.status = "APPROVED"
+    elif action in ("reject", "request_edit"):
+        inv.status = "REJECTED"
+    else:
+        inv.status = "UNDER_REVIEW"
+
+    inv.hr_note = note or None
+    inv.reviewed_by_user_id = u.id
+    inv.reviewed_at = now_tz().replace(tzinfo=None)
+
+    db.commit()
+    return RedirectResponse(url=f"/hr/invoice/{inv.id}", status_code=302)
+
+
 
 
 
