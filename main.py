@@ -1145,7 +1145,7 @@ def me_messages_send(
 
 
 def _hr_nav_counts(db: Session) -> dict:
-        unread_msgs = db.query(Message).filter(Message.direction.in_(["EMP_TO_HR", "MANAGER_TO_HR"]),Message.is_read == False).count()
+    unread_msgs = db.query(Message).filter(Message.direction.in_(["EMP_TO_HR", "MANAGER_TO_HR"]),Message.is_read == False).count()
     open_tickets = db.query(SupportTicket).filter(SupportTicket.status.in_(["OPEN", "IN_PROGRESS"])).count()
 
     pending_adj = db.query(AttendanceAdjustment).filter((AttendanceAdjustment.decision_late == "PENDING") | (AttendanceAdjustment.decision_early_leave == "PENDING") | (AttendanceAdjustment.decision_absence == "PENDING")).count()
