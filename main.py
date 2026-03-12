@@ -1423,8 +1423,8 @@ def manager_messages(
     db: Session = Depends(get_db),
     q: str | None = None,
     emp_id: int | None = None,
-):
-try:
+    ):
+    try:
         u = get_current_manager_user(request, db)
     except HTTPException:
         return RedirectResponse(url="/hr/login", status_code=302)
