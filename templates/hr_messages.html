@@ -48,8 +48,12 @@
                     <div class="small text-muted mono">#{{ r.kind }} • {{ r.sub }}</div>
                   </td>
                   <td class="text-muted small" style="max-width:520px">
-                  <a class="btn btn-sm btn-primary" href="{% if r.kind == 'manager' %}/hr/messages/manager/{{ r.target_id }}{% else %}/hr/messages/employee/{{ r.target_id }}{% endif %}">فتح</a>
-
+                    {% if r.last %}
+                      <div class="text-truncate">{{ r.last.body }}</div>
+                      <div class="small text-muted">{{ r.last.created_at }}</div>
+                    {% else %}
+                      <span class="text-muted">لا يوجد رسائل بعد</span>
+                    {% endif %}
                   </td>
                   <td class="text-center">
                     {% if r.unread %}
@@ -59,7 +63,7 @@
                     {% endif %}
                   </td>
                   <td class="text-end">
-                    <a class="btn btn-sm btn-primary" href="/hr/messages/{{ r.emp.id }}">فتح</a>
+                    <a class="btn btn-sm btn-primary" href="{% if r.kind == 'manager' %}/hr/messages/manager/{{ r.target_id }}{% else %}/hr/messages/employee/{{ r.target_id }}{% endif %}">فتح</a>
                   </td>
                 </tr>
               {% endfor %}
