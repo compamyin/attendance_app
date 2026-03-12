@@ -207,7 +207,6 @@ async function recordVideo(durationMs){
   const s = await getStream();
 
   let mime = "";
-  let mime = "";
   
   // فضّل MP4 أولًا لأنه يعمل أفضل على أغلب الأجهزة والمتصفحات
   if (MediaRecorder.isTypeSupported("video/mp4;codecs=h264")) {
@@ -275,6 +274,7 @@ async function recordVideo(durationMs){
     msgBox(`افتح صلاحيات الكاميرا... (سيتم التصوير 5 ثواني سيلفي)`, "alert alert-secondary");
     try{
       showCam(true);
+      document.getElementById("camTitle").innerText = "الكاميرا";
       facing = "user";
       await getStream();
       const durationMs = 5000;
