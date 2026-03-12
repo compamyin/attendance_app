@@ -39,6 +39,10 @@
         <span class="left"><i class="bi bi-people"></i> الموظفين</span>
         <span class="hint">تعديل</span>
       </a>
+      <a class="navbtn {% if '/hr/invoices' in path or '/hr/invoice/' in path %}active{% endif %}" href="/hr/invoices">
+       <span class="left"><i class="bi bi-receipt"></i> الفواتير</span>
+       <span class="hint">مراجعة</span>
+      </a>
 
       <a class="navbtn {% if '/hr/payroll' in path %}active{% endif %}" href="/hr/payroll">
         <span class="left"><i class="bi bi-cash-coin"></i> الرواتب</span>
