@@ -1145,7 +1145,7 @@ def me_messages_send(
 
 
 def _hr_nav_counts(db: Session) -> dict:
-    unread_msgs = db.query(Message).filter(Message.direction == "EMP_TO_HR", Message.is_read == False).count()
+        unread_msgs = db.query(Message).filter(Message.direction.in_(["EMP_TO_HR", "MANAGER_TO_HR"]),Message.is_read == False).count()
     open_tickets = db.query(SupportTicket).filter(SupportTicket.status.in_(["OPEN", "IN_PROGRESS"])).count()
 
     pending_adj = db.query(AttendanceAdjustment).filter((AttendanceAdjustment.decision_late == "PENDING") | (AttendanceAdjustment.decision_early_leave == "PENDING") | (AttendanceAdjustment.decision_absence == "PENDING")).count()
@@ -1163,8 +1163,8 @@ def hr_messages(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse(url="/hr/login", status_code=302)
 
     # list employees with last message + unread flag
-    employees = db.query(Employee).filter(Employee.is_active == True).order_by(Employee.full_name.asc()).all()
     rows = []
+    employees = db.query(Employee).filter(Employee.is_active == True).order_by(Employee.full_name.asc()).all()
     for e in employees:
         last = (
             db.query(Message)
@@ -1174,13 +1174,56 @@ def hr_messages(request: Request, db: Session = Depends(get_db)):
         )
         unread = (
             db.query(Message)
-            .filter(Message.employee_id == e.id, Message.direction == "EMP_TO_HR", Message.is_read == False)
+            .filter(
+                Message.employee_id == e.id,
+                Message.direction == "EMP_TO_HR",
+                Message.is_read == False,
+            )
             .count()
         )
         if last or unread:
-            rows.append({"emp": e, "last": last, "unread": unread})
-    rows.sort(key=lambda r: (0 if r["unread"] else 1, (r["last"].created_at if r["last"] else datetime.datetime.min)), reverse=False)
+            rows.append({
+                "kind": "employee",
+                "target_id": e.id,
+                "label": e.full_name,
+                "sub": e.employee_code,
+                "last": last,
+                "unread": unread,
+            })
 
+    managers = db.query(User).filter(User.role == "MANAGER").order_by(User.username.asc()).all()
+    for m in managers:
+        last = (
+            db.query(Message)
+            .filter(Message.manager_id == m.id)
+            .order_by(Message.created_at.desc())
+            .first()
+        )
+        unread = (
+            db.query(Message)
+            .filter(
+                Message.manager_id == m.id,
+                Message.direction == "MANAGER_TO_HR",
+                Message.is_read == False,
+            )
+            .count()
+        )
+        if last or unread:
+            rows.append({
+                "kind": "manager",
+                "target_id": m.id,
+                "label": m.username,
+                "sub": "MANAGER",
+                "last": last,
+                "unread": unread,
+            })
+
+    rows.sort(
+        key=lambda r: (
+            0 if r["unread"] else 1,
+            -(r["last"].created_at.timestamp() if r["last"] and r["last"].created_at else 0),
+        )
+    )
     counts = _hr_nav_counts(db)
     return templates.TemplateResponse(
         "hr_messages.html",
@@ -1207,7 +1250,7 @@ def hr_messages_broadcast(request: Request, body: str = Form(...), db: Session =
     return RedirectResponse(url="/hr/messages?ok=broadcast", status_code=302)
 
 
-@app.get("/hr/messages/{emp_id}", response_class=HTMLResponse)
+@app.get("/hr/messages/employee/{emp_id}", response_class=HTMLResponse)
 def hr_messages_thread(emp_id: int, request: Request, db: Session = Depends(get_db)):
     try:
         u = get_current_hr_user(request, db)
@@ -1227,11 +1270,20 @@ def hr_messages_thread(emp_id: int, request: Request, db: Session = Depends(get_
     counts = _hr_nav_counts(db)
     return templates.TemplateResponse(
         "hr_messages_thread.html",
-        {"request": request, "user": u, "emp": emp, "messages": msgs, "nav": counts},
+        {
+            "request": request,
+            "user": u,
+            "target_kind": "employee",
+            "target_name": emp.full_name,
+            "target_sub": emp.employee_code,
+            "post_url": f"/hr/messages/employee/{emp.id}",
+            "messages": msgs,
+            "nav": counts,
+        },
     )
 
 
-@app.post("/hr/messages/{emp_id}", response_class=HTMLResponse)
+@app.post("/hr/messages/employee/{emp_id}", response_class=HTMLResponse)
 def hr_messages_send(emp_id: int, request: Request, body: str = Form(...), db: Session = Depends(get_db)):
     try:
         u = get_current_hr_user(request, db)
@@ -1244,13 +1296,122 @@ def hr_messages_send(emp_id: int, request: Request, body: str = Form(...), db: S
 
     body_clean = (body or "").strip()
     if body_clean:
-        msg = Message(employee_id=emp.id, direction="HR_TO_EMP", body=body_clean, is_read=False)
-        db.add(msg)
+        db.add(Message(employee_id=emp.id, direction="HR_TO_EMP", body=body_clean, is_read=False))
         db.commit()
 
-    return RedirectResponse(url=f"/hr/messages/{emp.id}", status_code=302)
+    return RedirectResponse(url=f"/hr/messages/employee/{emp.id}", status_code=302)
+
+@app.get("/hr/messages/manager/{manager_id}", response_class=HTMLResponse)
+def hr_manager_messages_thread(manager_id: int, request: Request, db: Session = Depends(get_db)):
+    try:
+        u = get_current_hr_user(request, db)
+    except HTTPException:
+        return RedirectResponse(url="/hr/login", status_code=302)
+
+    manager = db.get(User, manager_id)
+    if not manager or manager.role != "MANAGER":
+        raise HTTPException(status_code=404, detail="Manager not found")
+
+    msgs = db.query(Message).filter(Message.manager_id == manager.id).order_by(Message.created_at.asc()).all()
+    for m in msgs:
+        if m.direction == "MANAGER_TO_HR" and not m.is_read:
+            m.is_read = True
+    db.commit()
+
+    counts = _hr_nav_counts(db)
+    return templates.TemplateResponse(
+        "hr_messages_thread.html",
+        {
+            "request": request,
+            "user": u,
+            "target_kind": "manager",
+            "target_name": manager.username,
+            "target_sub": "MANAGER",
+            "post_url": f"/hr/messages/manager/{manager.id}",
+            "messages": msgs,
+            "nav": counts,
+        },
+    )
 
 
+@app.post("/hr/messages/manager/{manager_id}", response_class=HTMLResponse)
+def hr_manager_messages_send(manager_id: int, request: Request, body: str = Form(...), db: Session = Depends(get_db)):
+    try:
+        get_current_hr_user(request, db)
+    except HTTPException:
+        return RedirectResponse(url="/hr/login", status_code=302)
+
+    manager = db.get(User, manager_id)
+    if not manager or manager.role != "MANAGER":
+        raise HTTPException(status_code=404, detail="Manager not found")
+
+    body_clean = (body or "").strip()
+    if body_clean:
+        db.add(Message(manager_id=manager.id, direction="HR_TO_MANAGER", body=body_clean, is_read=False))
+        db.commit()
+
+    return RedirectResponse(url=f"/hr/messages/manager/{manager.id}", status_code=302)
+
+@app.get("/manager/messages", response_class=HTMLResponse)
+def manager_messages(request: Request, db: Session = Depends(get_db)):
+    try:
+        u = get_current_manager_user(request, db)
+    except HTTPException:
+        return RedirectResponse(url="/hr/login", status_code=302)
+
+    hr_msgs = db.query(Message).filter(Message.manager_id == u.id).order_by(Message.created_at.desc()).all()
+    for m in hr_msgs:
+        if m.direction == "HR_TO_MANAGER" and not m.is_read:
+            m.is_read = True
+
+    employees = db.query(Employee).filter(Employee.is_active == True).order_by(Employee.full_name.asc()).all()
+    emp_rows = []
+    for e in employees:
+        last = (
+            db.query(Message)
+            .filter(Message.employee_id == e.id, Message.direction == "MANAGER_TO_EMP")
+            .order_by(Message.created_at.desc())
+            .first()
+        )
+        emp_rows.append({"emp": e, "last": last})
+    db.commit()
+
+    return templates.TemplateResponse(
+        "manager_messages.html",
+        {"request": request, "user": u, "hr_messages": hr_msgs, "employee_rows": emp_rows},
+    )
+
+
+@app.post("/manager/messages/hr", response_class=HTMLResponse)
+def manager_messages_send_hr(request: Request, body: str = Form(...), db: Session = Depends(get_db)):
+    try:
+        u = get_current_manager_user(request, db)
+    except HTTPException:
+        return RedirectResponse(url="/hr/login", status_code=302)
+
+    body_clean = (body or "").strip()
+    if body_clean:
+        db.add(Message(manager_id=u.id, direction="MANAGER_TO_HR", body=body_clean, is_read=False))
+        db.commit()
+    return RedirectResponse(url="/manager/messages", status_code=302)
+
+
+@app.post("/manager/messages/employee/{emp_id}", response_class=HTMLResponse)
+def manager_messages_send_employee(emp_id: int, request: Request, body: str = Form(...), db: Session = Depends(get_db)):
+    try:
+        u = get_current_manager_user(request, db)
+    except HTTPException:
+        return RedirectResponse(url="/hr/login", status_code=302)
+
+    emp = db.get(Employee, emp_id)
+    if not emp:
+        raise HTTPException(status_code=404, detail="Employee not found")
+
+    body_clean = (body or "").strip()
+    if body_clean:
+        db.add(Message(employee_id=emp.id, manager_id=u.id, direction="MANAGER_TO_EMP", body=body_clean, is_read=False))
+        db.commit()
+    return RedirectResponse(url="/manager/messages", status_code=302)
 
 @app.get("/me/payroll", response_class=HTMLResponse)
 def me_payroll(request: Request, db: Session = Depends(get_db), month: str | None = None):
@@ -3703,9 +3864,10 @@ def hr_employees(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse(url="/hr/login", status_code=302)
 
     employees = db.query(Employee).order_by(Employee.employee_code.asc()).all()
+    managers = db.query(User).filter(User.role == "MANAGER").order_by(User.username.asc()).all()
     return templates.TemplateResponse(
         "hr_employees.html",
-        {"request": request, "user": u, "employees": employees},
+        {"request": request, "user": u, "employees": employees, "managers": managers},
     )
 
 @app.get("/hr/employees/new", response_class=HTMLResponse)
@@ -3777,7 +3939,89 @@ def hr_employee_detail(request: Request, emp_id: int, db: Session = Depends(get_
         {"request": request, "nav": _hr_nav_counts(db), "user": u, "emp": emp, "notes": notes},
     )
 
+@app.get("/hr/managers/{manager_id}", response_class=HTMLResponse)
+def hr_manager_detail(request: Request, manager_id: int, db: Session = Depends(get_db)):
+    try:
+        u = get_current_hr_user(request, db)
+    except HTTPException:
+        return RedirectResponse(url="/hr/login", status_code=302)
 
+    manager = db.get(User, manager_id)
+    if not manager or manager.role != "MANAGER":
+        raise HTTPException(status_code=404, detail="Manager not found")
+
+    return templates.TemplateResponse(
+        "hr_manager_detail.html",
+        {"request": request, "user": u, "manager": manager, "nav": _hr_nav_counts(db)},
+    )
+
+
+@app.post("/hr/managers/{manager_id}/update")
+def hr_manager_update(
+    request: Request,
+    manager_id: int,
+    username: str = Form(...),
+    is_active: int = Form(1),
+    new_password: str | None = Form(None),
+    confirm_password: str | None = Form(None),
+    new_pin: str | None = Form(None),
+    confirm_pin: str | None = Form(None),
+    db: Session = Depends(get_db),
+):
+    try:
+        u = get_current_hr_user(request, db)
+    except HTTPException:
+        return RedirectResponse(url="/hr/login", status_code=302)
+
+    manager = db.get(User, manager_id)
+    if not manager or manager.role != "MANAGER":
+        raise HTTPException(status_code=404, detail="Manager not found")
+
+    username = (username or "").strip()
+    if not username:
+        return templates.TemplateResponse(
+            "hr_manager_detail.html",
+            {"request": request, "user": u, "manager": manager, "nav": _hr_nav_counts(db), "error": "اسم المستخدم مطلوب."},
+            status_code=400,
+        )
+
+    other = db.query(User).filter(User.username == username, User.id != manager.id).first()
+    if other:
+        return templates.TemplateResponse(
+            "hr_manager_detail.html",
+            {"request": request, "user": u, "manager": manager, "nav": _hr_nav_counts(db), "error": "اسم المستخدم مستخدم مسبقًا."},
+            status_code=400,
+        )
+
+    if (new_password or "").strip() or (confirm_password or "").strip():
+        if (new_password or "").strip() != (confirm_password or "").strip():
+            return templates.TemplateResponse(
+                "hr_manager_detail.html",
+                {"request": request, "user": u, "manager": manager, "nav": _hr_nav_counts(db), "error": "كلمة السر غير متطابقة."},
+                status_code=400,
+            )
+        manager.password_hash = hash_pin(new_password.strip())
+
+    if (new_pin or "").strip() or (confirm_pin or "").strip():
+        if (new_pin or "").strip() != (confirm_pin or "").strip():
+            return templates.TemplateResponse(
+                "hr_manager_detail.html",
+                {"request": request, "user": u, "manager": manager, "nav": _hr_nav_counts(db), "error": "PIN غير متطابق."},
+                status_code=400,
+            )
+        manager.pin_hash = hash_pin(new_pin.strip())
+
+    manager.username = username
+    manager.is_active = bool(int(is_active))
+
+    db.add(manager)
+    db.commit()
+
+    return templates.TemplateResponse(
+        "hr_manager_detail.html",
+        {"request": request, "user": u, "manager": manager, "nav": _hr_nav_counts(db), "success": "تم حفظ بيانات المدير بنجاح."},
+    )
+    
 @app.post("/hr/employees/{emp_id}/note")
 def hr_employee_add_note(
     emp_id: int,
