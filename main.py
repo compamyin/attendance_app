@@ -1204,6 +1204,7 @@ def hr_messages(request: Request, db: Session = Depends(get_db)):
             })
 
     managers = db.query(User).filter(User.role == "MANAGER").order_by(User.username.asc()).all()
+    managers = db.query(User).filter(User.role == "MANAGER").order_by(User.username.asc()).all()
     for m in managers:
         last = (
             db.query(Message)
@@ -1223,15 +1224,15 @@ def hr_messages(request: Request, db: Session = Depends(get_db)):
             )
             .count()
         )
-        if last or unread:
-            rows.append({
-                "kind": "manager",
-                "target_id": m.id,
-                "label": m.username,
-                "sub": "MANAGER",
-                "last": last,
-                "unread": unread,
-            })
+
+        rows.append({
+            "kind": "manager",
+            "target_id": m.id,
+            "label": m.username,
+            "sub": "MANAGER",
+            "last": last,
+            "unread": unread,
+        })   
 
     rows.sort(
         key=lambda r: (
