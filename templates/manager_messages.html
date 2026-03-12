@@ -1,0 +1,58 @@
+{% extends "_manager_base.html" %}
+{% block title %}رسائل المدير{% endblock %}
+{% block content %}
+<div class="container py-4">
+  <div class="row g-3">
+    <div class="col-12 col-lg-5">
+      <div class="card shadow-sm rounded-4 border-0">
+        <div class="card-body p-4">
+          <h5 class="mb-3">محادثة HR</h5>
+          <form method="post" action="/manager/messages/hr">
+            <textarea class="form-control mb-2" name="body" rows="4" placeholder="اكتب رسالة إلى HR..." required></textarea>
+            <button class="btn btn-primary w-100">إرسال إلى HR</button>
+          </form>
+          <hr>
+          <div class="msg-wrap">
+            {% for m in hr_messages|reverse %}
+              <div class="msg-bubble {% if m.direction == 'HR_TO_MANAGER' %}them{% else %}me{% endif %}">
+                <div class="d-flex justify-content-between align-items-center">
+                  <div class="fw-semibold">{% if m.direction == 'HR_TO_MANAGER' %}HR{% else %}أنت{% endif %}</div>
+                  <div class="msg-meta">{{ m.created_at }}</div>
+                </div>
+                <div class="mt-2" style="white-space:pre-wrap">{{ m.body }}</div>
+              </div>
+            {% else %}
+              <div class="text-muted">لا يوجد رسائل مع HR.</div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-12 col-lg-7">
+      <div class="card shadow-sm rounded-4 border-0">
+        <div class="card-body p-4">
+          <h5 class="mb-3">إرسال رسالة لموظف</h5>
+          <div class="d-flex flex-column gap-3">
+            {% for row in employee_rows %}
+              <form method="post" action="/manager/messages/employee/{{ row.emp.id }}" class="border rounded-4 p-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <div>
+                    <div class="fw-semibold">{{ row.emp.full_name }}</div>
+                    <div class="small text-muted">{{ row.emp.employee_code }}</div>
+                  </div>
+                  {% if row.last %}
+                    <div class="small text-muted">آخر إرسال: {{ row.last.created_at }}</div>
+                  {% endif %}
+                </div>
+                <textarea class="form-control mb-2" name="body" rows="3" placeholder="رسالة للموظف..." required></textarea>
+                <button class="btn btn-outline-primary">إرسال</button>
+              </form>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
