@@ -44,11 +44,12 @@
               {% for r in rows %}
                 <tr>
                   <td>
-                    <div class="fw-semibold">{{ r.emp.full_name }}</div>
-                    <div class="small text-muted mono">#{{ r.emp.id }} • {{ r.emp.employee_code }}</div>
+                    <div class="fw-semibold">{{ r.label }}</div>
+                    <div class="small text-muted mono">#{{ r.kind }} • {{ r.sub }}</div>
                   </td>
                   <td class="text-muted small" style="max-width:520px">
-                    {{ (r.last.body if r.last else '')[:120] }}{% if r.last and (r.last.body|length) > 120 %}…{% endif %}
+                  <a class="btn btn-sm btn-primary" href="{% if r.kind == 'manager' %}/hr/messages/manager/{{ r.target_id }}{% else %}/hr/messages/employee/{{ r.target_id }}{% endif %}">فتح</a>
+
                   </td>
                   <td class="text-center">
                     {% if r.unread %}
