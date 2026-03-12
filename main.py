@@ -189,7 +189,7 @@ def ensure_schema():
                 conn.execute(text("UPDATE attendance_adjustments SET decision_early_leave='REJECTED' WHERE decision_early_leave='EXCUSED'"))
                 conn.execute(text("UPDATE attendance_adjustments SET decision_absence='REJECTED' WHERE decision_absence='EXCUSED'"))
                 conn.execute(text("UPDATE attendance_adjustments SET decision_overtime='REJECTED' WHERE decision_overtime='EXCUSED'")) 
-                        msg_cols = _cols("messages")
+            msg_cols = _cols("messages")
             if msg_cols:
                 if "manager_id" not in msg_cols:
                     conn.execute(text("ALTER TABLE messages ADD COLUMN manager_id INTEGER NULL"))
