@@ -9,7 +9,7 @@
       <div class="d-flex align-items-center gap-2">
         <a class="btn btn-sm btn-primary" href="/hr/employees/new">إضافة موظف</a>
         <a class="btn btn-sm btn-outline-primary" href="/hr/create-manager">إضافة مدير</a>
-        <span class="text-muted ms-2">الإجمالي: {{ employees|length }}</span>
+        <span class="text-muted ms-2">الموظفين: {{ employees|length }} • المدراء: {{ managers|length if managers is defined else 0 }}</span>
       </div>
     </div>
 
@@ -58,7 +58,48 @@
         </tbody>
       </table>
     </div>
-
+    <div class="card border-0 shadow-sm mt-4">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h5 class="mb-0">المدراء</h5>
+      <span class="text-muted small">{{ managers|length if managers is defined else 0 }} مدير</span>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-striped align-middle mb-0">
+        <thead>
+          <tr>
+            <th>اسم المستخدم</th>
+            <th>الدور</th>
+            <th>الحالة</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in managers %}
+          <tr>
+            <td class="fw-semibold">{{ m.username }}</td>
+            <td>{{ m.role }}</td>
+            <td>
+              {% if m.is_active %}
+                <span class="badge bg-success">Active</span>
+              {% else %}
+                <span class="badge bg-secondary">Inactive</span>
+              {% endif %}
+            </td>
+            <td class="text-end">
+              <a class="btn btn-sm btn-outline-primary" href="/hr/managers/{{ m.id }}">ملف المدير</a>
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="4" class="text-center text-muted">لا يوجد مدراء بعد.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
     <a class="btn btn-outline-secondary" href="/hr/dashboard">رجوع</a>
   </div>
 
