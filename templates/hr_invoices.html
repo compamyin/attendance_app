@@ -1,0 +1,69 @@
+{% extends "_modern_base.html" %}
+{% block title %}فواتير الموظفين{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+      <h3 class="mb-1">الفواتير</h3>
+      <div class="text-muted">عرض الموظفين الذين لديهم فواتير ومتابعة حالتها</div>
+    </div>
+  </div>
+
+  <div class="card border-0 shadow-sm rounded-4">
+    <div class="card-body p-0">
+      {% if rows %}
+      <div class="table-responsive">
+        <table class="table align-middle mb-0">
+          <thead>
+            <tr>
+              <th class="px-4 py-3">الموظف</th>
+              <th class="py-3">عدد الفواتير</th>
+              <th class="py-3">الجديدة</th>
+              <th class="py-3">تحت المراجعة</th>
+              <th class="py-3">آخر فاتورة</th>
+              <th class="py-3 px-4"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in rows %}
+            <tr>
+              <td class="px-4 py-3">
+                <div class="fw-semibold">{{ row.employee.full_name }}</div>
+                <div class="text-muted small">{{ row.employee.employee_code }}</div>
+              </td>
+              <td>{{ row.count_all }}</td>
+              <td>
+                <span class="badge text-bg-dark rounded-pill">{{ row.count_new }}</span>
+              </td>
+              <td>
+                <span class="badge text-bg-warning rounded-pill">{{ row.count_review }}</span>
+              </td>
+              <td>
+                {% if row.last_invoice_at %}
+                  {{ row.last_invoice_at.strftime('%Y-%m-%d %H:%M') }}
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+              <td class="px-4 text-end">
+                <a href="/hr/invoices/{{ row.employee.id }}" class="btn btn-outline-dark btn-sm rounded-pill px-3">
+                  فتح
+                </a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="p-5 text-center">
+        <i class="bi bi-receipt fs-1 d-block text-muted mb-3"></i>
+        <h5 class="mb-2">لا توجد فواتير حتى الآن</h5>
+        <div class="text-muted">عند إضافة الموظفين لفواتيرهم ستظهر هنا</div>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
