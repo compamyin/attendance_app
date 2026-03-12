@@ -15,9 +15,14 @@
   {% if error %}
     <div class="alert alert-danger">{{ error }}</div>
   {% endif %}
-  {% if success %}
-    <div class="alert alert-success">{{ success }}</div>
+ {% if success %}
+  <div class="alert alert-success">{{ success }}</div>
   {% endif %}
+
+  <div class="alert alert-info">
+    كلمة السر الحالية وPIN الحالي لا يمكن عرضهما لأنهما مخزّنان بشكل مشفّر (Hash).
+    يمكنك فقط تعيين كلمة سر جديدة أو PIN جديد للمدير.
+  </div>
 
   <form method="post" action="/hr/managers/{{ manager.id }}/update" class="card border-0 shadow-sm">
     <div class="card-body p-4">
