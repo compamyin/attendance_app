@@ -1416,8 +1416,13 @@ async def hr_manager_messages_send(
     return RedirectResponse(url=f"/hr/messages/manager/{manager.id}", status_code=302)
 
 @app.get("/manager/messages", response_class=HTMLResponse)
-def manager_messages(request: Request, db: Session = Depends(get_db), q: str | None = None):
-    try:
+def manager_messages(
+    request: Request,
+    db: Session = Depends(get_db),
+    q: str | None = None,
+    emp_id: int | None = None,
+):
+try:
         u = get_current_manager_user(request, db)
     except HTTPException:
         return RedirectResponse(url="/hr/login", status_code=302)
@@ -1428,7 +1433,7 @@ def manager_messages(request: Request, db: Session = Depends(get_db), q: str | N
             Message.manager_id == u.id,
             Message.direction.in_(["MANAGER_TO_HR", "HR_TO_MANAGER"]),
         )
-        .order_by(Message.created_at.desc())
+        .order_by(Message.created_at.asc())
         .all()
     )
 
@@ -1449,20 +1454,41 @@ def manager_messages(request: Request, db: Session = Depends(get_db), q: str | N
     employees = employees_q.order_by(Employee.full_name.asc()).all()
 
     emp_rows = []
+    selected_employee = None
+    employee_messages = []
+
     for e in employees:
         last = (
             db.query(Message)
             .filter(
                 Message.employee_id == e.id,
+                Message.manager_id == u.id,
                 Message.direction == "MANAGER_TO_EMP",
             )
             .order_by(Message.created_at.desc())
             .first()
         )
         emp_rows.append({"emp": e, "last": last})
+        if emp_id and e.id == emp_id:
+            selected_employee = e
+
+    if emp_id and not selected_employee:
+        selected_employee = db.get(Employee, emp_id)
+
+    if selected_employee:
+        employee_messages = (
+            db.query(Message)
+            .filter(
+                Message.employee_id == selected_employee.id,
+                Message.manager_id == u.id,
+                Message.direction == "MANAGER_TO_EMP",
+            )
+            .order_by(Message.created_at.asc())
+            .all()
+        )
 
     db.commit()
-
+    
     return templates.TemplateResponse(
         "manager_messages.html",
         {
@@ -1470,21 +1496,62 @@ def manager_messages(request: Request, db: Session = Depends(get_db), q: str | N
             "user": u,
             "hr_messages": hr_msgs,
             "employee_rows": emp_rows,
+            "selected_employee": selected_employee,
+            "employee_messages": employee_messages,
             "q": q or "",
         },
     )
 
 @app.post("/manager/messages/hr", response_class=HTMLResponse)
-def manager_messages_send_hr(request: Request, body: str = Form(...), db: Session = Depends(get_db)):
+async def manager_messages_send_hr(
+    request: Request,
+    body: str = Form(""),
+    attachment: UploadFile | None = File(None),
+    db: Session = Depends(get_db),
+):
     try:
         u = get_current_manager_user(request, db)
     except HTTPException:
         return RedirectResponse(url="/hr/login", status_code=302)
 
     body_clean = (body or "").strip()
-    if body_clean:
-        db.add(Message(manager_id=u.id, direction="MANAGER_TO_HR", body=body_clean, is_read=False))
+    attachment_path = None
+    attachment_name = None
+    attachment_type = None
+
+    if attachment and getattr(attachment, "filename", None):
+        original_name = Path(attachment.filename).name
+        ext = Path(original_name).suffix.lower()
+        allowed_ext = {
+            ".jpg", ".jpeg", ".png", ".webp",
+            ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".txt"
+        }
+        if ext not in allowed_ext:
+            ext = ".bin"
+
+        fname = f"msg_hr_{u.id}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}{ext}"
+        out_path = MESSAGE_ATTACHMENTS_DIR / fname
+        content = await attachment.read()
+        out_path.write_bytes(content)
+
+        attachment_path = str(out_path.relative_to(MEDIA_DIR)).replace("\\", "/")
+        attachment_name = original_name
+        attachment_type = (attachment.content_type or "application/octet-stream")[:100]
+
+    if body_clean or attachment_path:
+        db.add(
+            Message(
+                manager_id=u.id,
+                direction="MANAGER_TO_HR",
+                body=body_clean or "مرفق",
+                attachment_path=attachment_path,
+                attachment_name=attachment_name,
+                attachment_type=attachment_type,
+                is_read=False,
+            )
+        )
         db.commit()
+
     return RedirectResponse(url="/manager/messages", status_code=302)
 
 
@@ -1503,8 +1570,7 @@ def manager_messages_send_employee(emp_id: int, request: Request, body: str = Fo
     if body_clean:
         db.add(Message(employee_id=emp.id, manager_id=u.id, direction="MANAGER_TO_EMP", body=body_clean, is_read=False))
         db.commit()
-    return RedirectResponse(url="/manager/messages", status_code=302)
-
+    return RedirectResponse(url=f"/manager/messages?emp_id={emp.id}", status_code=302)
 @app.get("/me/payroll", response_class=HTMLResponse)
 def me_payroll(request: Request, db: Session = Depends(get_db), month: str | None = None):
     try:
