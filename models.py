@@ -196,9 +196,11 @@ class Message(Base):
         nullable=False,
     )
     body: Mapped[str] = mapped_column(String(2000), nullable=False)
+    attachment_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    attachment_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    attachment_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
     is_read: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[DateTime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
-
     employee = relationship("Employee")
     manager = relationship("User")
 
