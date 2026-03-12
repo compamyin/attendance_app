@@ -6,8 +6,8 @@
   <div class="container py-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
       <div>
-        <h4 class="mb-1">{{ emp.full_name }}</h4>
-        <div class="text-muted small">#{{ emp.id }} • {{ emp.employee_code }}</div>
+        <h4 class="mb-1">{{ target_name }}</h4>
+        <div class="text-muted small">#{{ target_kind|upper }} • {{ target_sub }}</div>
       </div>
       <a class="btn btn-outline-secondary" href="/hr/messages">رجوع</a>
     </div>
@@ -17,7 +17,8 @@
         <div class="card shadow-sm border-0 rounded-4">
           <div class="card-body">
             <h6 class="mb-2">إرسال رسالة للموظف</h6>
-            <form method="post" action="/hr/messages/{{ emp.id }}">
+            <form method="post" action="{{ post_url }}">
+
               <textarea class="form-control mb-2" name="body" rows="4" placeholder="اكتب رسالة..." required></textarea>
               <button class="btn btn-primary w-100">إرسال</button>
             </form>
@@ -33,9 +34,15 @@
             {% else %}
               <div class="msg-wrap">
                 {% for m in messages %}
-                  <div class="msg-bubble {% if m.direction == 'EMP_TO_HR' %}them{% else %}me{% endif %}">
-                    <div class="msg-meta">
-                      {% if m.direction == 'EMP_TO_HR' %}الموظف{% else %}الإدارة{% endif %}
+                  <div class="msg-bubble {% if m.direction in ['EMP_TO_HR', 'MANAGER_TO_HR'] %}them{% else %}me{% endif %}">
+                     <div class="msg-meta">
+                      {% if m.direction == 'EMP_TO_HR' %}
+                        الموظف
+                      {% elif m.direction == 'MANAGER_TO_HR' %}
+                        المدير
+                      {% else %}
+                        الإدارة
+                      {% endif %}
                       • {{ m.created_at }}
                     </div>
                     <div style="white-space:pre-wrap">{{ m.body }}</div>
