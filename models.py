@@ -182,14 +182,25 @@ class Message(Base):
     __tablename__ = "messages"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    employee_id: Mapped[int] = mapped_column(Integer, ForeignKey("employees.id"), nullable=False)
-    direction: Mapped[str] = mapped_column(Enum("EMP_TO_HR", "HR_TO_EMP", name="message_direction_enum"), nullable=False)
+    employee_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("employees.id"), nullable=True)
+    manager_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"), nullable=True)
+    direction: Mapped[str] = mapped_column(
+        Enum(
+            "EMP_TO_HR",
+            "HR_TO_EMP",
+            "MANAGER_TO_HR",
+            "HR_TO_MANAGER",
+            "MANAGER_TO_EMP",
+            name="message_direction_enum",
+        ),
+        nullable=False,
+    )
     body: Mapped[str] = mapped_column(String(2000), nullable=False)
     is_read: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[DateTime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
     employee = relationship("Employee")
-
+    manager = relationship("User")
 
 class EmployeeNote(Base):
     """ملاحظات من HR/ADMIN للموظف (اختياري: تظهر للموظف)."""
