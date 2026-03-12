@@ -225,7 +225,6 @@ def ensure_schema():
                         conn.execute(text(enum_sql))
                     except Exception:
                         pass
-
             sync_postgres_sequence(conn, "users", "id")   
                
     except Exception:
