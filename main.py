@@ -1114,7 +1114,7 @@ def me_messages(request: Request, db: Session = Depends(get_db)):
         .all()
     )
     for m in msgs:
-        if m.direction == "HR_TO_EMP" and not m.is_read:
+        if m.direction in ("HR_TO_EMP", "MANAGER_TO_EMP") and not m.is_read:
             m.is_read = True
     db.commit()
 
