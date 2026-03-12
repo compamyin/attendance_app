@@ -18,6 +18,8 @@ from sqlalchemy import and_, func, text
 from sqlalchemy.orm import Session
 from fastapi import FastAPI, Request, Depends
 from fastapi import APIRouter
+from fastapi import File, UploadFile
+
 
 from db import Base, engine, get_db
 from models import (
