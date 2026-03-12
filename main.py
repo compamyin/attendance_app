@@ -133,7 +133,21 @@ def reverse_geocode_nominatim(lat: float, lng: float) -> tuple[str | None, str |
         return area, region
     except Exception:
         return None, None
-
+def sync_postgres_sequence(conn, table_name: str, pk_col: str = "id"):
+    """Keep PostgreSQL sequence in sync with MAX(id) to avoid duplicate PK on INSERT."""
+    try:
+        seq_name = conn.execute(
+            text("SELECT pg_get_serial_sequence(:table_name, :pk_col)"),
+            {"table_name": table_name, "pk_col": pk_col},
+        ).scalar()
+        if seq_name:
+            conn.execute(
+                text(
+                    f"SELECT setval('{seq_name}', COALESCE((SELECT MAX({pk_col}) FROM {table_name}), 0) + 1, false)"
+                )
+            )
+    except Exception:
+        pass
 
 def ensure_schema():
     """Best-effort lightweight migrations for existing SQLite/MySQL DBs."""
@@ -175,6 +189,35 @@ def ensure_schema():
                 conn.execute(text("UPDATE attendance_adjustments SET decision_early_leave='REJECTED' WHERE decision_early_leave='EXCUSED'"))
                 conn.execute(text("UPDATE attendance_adjustments SET decision_absence='REJECTED' WHERE decision_absence='EXCUSED'"))
                 conn.execute(text("UPDATE attendance_adjustments SET decision_overtime='REJECTED' WHERE decision_overtime='EXCUSED'")) 
+                        msg_cols = _cols("messages")
+            if msg_cols:
+                if "manager_id" not in msg_cols:
+                    conn.execute(text("ALTER TABLE messages ADD COLUMN manager_id INTEGER NULL"))
+                try:
+                    conn.execute(text("ALTER TABLE messages ALTER COLUMN employee_id DROP NOT NULL"))
+                except Exception:
+                    pass
+                try:
+                    conn.execute(
+                        text(
+                            "ALTER TABLE messages ADD CONSTRAINT fk_messages_manager_id FOREIGN KEY (manager_id) REFERENCES users(id)"
+                        )
+                    )
+                except Exception:
+                    pass
+
+                for enum_sql in [
+                    "ALTER TYPE message_direction_enum ADD VALUE IF NOT EXISTS 'MANAGER_TO_HR'",
+                    "ALTER TYPE message_direction_enum ADD VALUE IF NOT EXISTS 'HR_TO_MANAGER'",
+                    "ALTER TYPE message_direction_enum ADD VALUE IF NOT EXISTS 'MANAGER_TO_EMP'",
+                ]:
+                    try:
+                        conn.execute(text(enum_sql))
+                    except Exception:
+                        pass
+
+            sync_postgres_sequence(conn, "users", "id")   
+               
     except Exception:
         pass
     
@@ -1713,13 +1756,27 @@ def hr_create_manager(
         is_active=True,
     )
     db.add(u)
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        try:
+            with engine.begin() as conn:
+                sync_postgres_sequence(conn, "users", "id")
+            db.add(u)
+            db.commit()
+        except Exception:
+            db.rollback()
+            return templates.TemplateResponse(
+                "hr_create_manager.html",
+                {"request": request, "error": "فشل إنشاء المدير. إذا كانت قاعدة البيانات قديمة شغّل التحديثات ثم جرّب مرة ثانية."},
+                status_code=500,
+            )
 
     return templates.TemplateResponse(
         "hr_create_manager.html",
         {"request": request, "success": f"تمت إضافة مدير ({username}) بنجاح."},
     )
-
 
 @app.get("/admin/login", response_class=HTMLResponse)
 def admin_login_page(request: Request):
