@@ -206,6 +206,16 @@ def ensure_schema():
                 except Exception:
                     pass
 
+                for col_sql in [
+                    "ALTER TABLE messages ADD COLUMN attachment_path VARCHAR(500) NULL",
+                    "ALTER TABLE messages ADD COLUMN attachment_name VARCHAR(255) NULL",
+                    "ALTER TABLE messages ADD COLUMN attachment_type VARCHAR(100) NULL",
+                ]:
+                    try:
+                        conn.execute(text(col_sql))
+                    except Exception:
+                        pass
+
                 for enum_sql in [
                     "ALTER TYPE message_direction_enum ADD VALUE IF NOT EXISTS 'MANAGER_TO_HR'",
                     "ALTER TYPE message_direction_enum ADD VALUE IF NOT EXISTS 'HR_TO_MANAGER'",
@@ -242,15 +252,16 @@ templates = Jinja2Templates(directory="templates")
 
 # Static media (videos/photos)
 BASE_DIR = Path(__file__).resolve().parent
-MEDIA_DIR =  BASE_DIR / "media"
+MEDIA_DIR = BASE_DIR / "media"
 VIDEOS_DIR = MEDIA_DIR / "videos"
 PHOTOS_DIR = MEDIA_DIR / "photos"
-VIDEOS_DIR = MEDIA_DIR / "videos"
 INVOICES_DIR = MEDIA_DIR / "invoices"
+MESSAGE_ATTACHMENTS_DIR = MEDIA_DIR / "message_attachments"
+
 INVOICES_DIR.mkdir(parents=True, exist_ok=True)
+MESSAGE_ATTACHMENTS_DIR.mkdir(parents=True, exist_ok=True)
 VIDEOS_DIR.mkdir(parents=True, exist_ok=True)
 PHOTOS_DIR.mkdir(parents=True, exist_ok=True)
-VIDEOS_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
 app.mount("/media", StaticFiles(directory=str(MEDIA_DIR)), name="media")
@@ -1195,7 +1206,10 @@ def hr_messages(request: Request, db: Session = Depends(get_db)):
     for m in managers:
         last = (
             db.query(Message)
-            .filter(Message.manager_id == m.id)
+            .filter(
+                Message.manager_id == m.id,
+                Message.direction.in_(["MANAGER_TO_HR", "HR_TO_MANAGER"]),
+            )
             .order_by(Message.created_at.desc())
             .first()
         )
@@ -1312,7 +1326,15 @@ def hr_manager_messages_thread(manager_id: int, request: Request, db: Session = 
     if not manager or manager.role != "MANAGER":
         raise HTTPException(status_code=404, detail="Manager not found")
 
-    msgs = db.query(Message).filter(Message.manager_id == manager.id).order_by(Message.created_at.asc()).all()
+    msgs = (
+        db.query(Message)
+        .filter(
+            Message.manager_id == manager.id,
+            Message.direction.in_(["MANAGER_TO_HR", "HR_TO_MANAGER"]),
+        )
+        .order_by(Message.created_at.asc())
+        .all()
+    )
     for m in msgs:
         if m.direction == "MANAGER_TO_HR" and not m.is_read:
             m.is_read = True
@@ -1335,7 +1357,13 @@ def hr_manager_messages_thread(manager_id: int, request: Request, db: Session = 
 
 
 @app.post("/hr/messages/manager/{manager_id}", response_class=HTMLResponse)
-def hr_manager_messages_send(manager_id: int, request: Request, body: str = Form(...), db: Session = Depends(get_db)):
+async def hr_manager_messages_send(
+    manager_id: int,
+    request: Request,
+    body: str = Form(""),
+    attachment: UploadFile | None = File(None),
+    db: Session = Depends(get_db),
+):
     try:
         get_current_hr_user(request, db)
     except HTTPException:
@@ -1346,41 +1374,106 @@ def hr_manager_messages_send(manager_id: int, request: Request, body: str = Form
         raise HTTPException(status_code=404, detail="Manager not found")
 
     body_clean = (body or "").strip()
-    if body_clean:
-        db.add(Message(manager_id=manager.id, direction="HR_TO_MANAGER", body=body_clean, is_read=False))
+    attachment_path = None
+    attachment_name = None
+    attachment_type = None
+
+    if attachment and getattr(attachment, "filename", None):
+        original_name = Path(attachment.filename).name
+        ext = Path(original_name).suffix.lower()
+
+        allowed_ext = {
+            ".jpg", ".jpeg", ".png", ".webp",
+            ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".txt"
+        }
+
+        if ext not in allowed_ext:
+            ext = ".bin"
+
+        fname = f"msg_mgr_{manager.id}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}{ext}"
+        out_path = MESSAGE_ATTACHMENTS_DIR / fname
+
+        content = await attachment.read()
+        out_path.write_bytes(content)
+
+        attachment_path = str(out_path.relative_to(MEDIA_DIR)).replace("\\", "/")
+        attachment_name = original_name
+        attachment_type = (attachment.content_type or "application/octet-stream")[:100]
+
+    if body_clean or attachment_path:
+        db.add(
+            Message(
+                manager_id=manager.id,
+                direction="HR_TO_MANAGER",
+                body=body_clean or "مرفق",
+                attachment_path=attachment_path,
+                attachment_name=attachment_name,
+                attachment_type=attachment_type,
+                is_read=False,
+            )
+        )
         db.commit()
 
     return RedirectResponse(url=f"/hr/messages/manager/{manager.id}", status_code=302)
 
 @app.get("/manager/messages", response_class=HTMLResponse)
-def manager_messages(request: Request, db: Session = Depends(get_db)):
+def manager_messages(request: Request, db: Session = Depends(get_db), q: str | None = None):
     try:
         u = get_current_manager_user(request, db)
     except HTTPException:
         return RedirectResponse(url="/hr/login", status_code=302)
 
-    hr_msgs = db.query(Message).filter(Message.manager_id == u.id).order_by(Message.created_at.desc()).all()
+    hr_msgs = (
+        db.query(Message)
+        .filter(
+            Message.manager_id == u.id,
+            Message.direction.in_(["MANAGER_TO_HR", "HR_TO_MANAGER"]),
+        )
+        .order_by(Message.created_at.desc())
+        .all()
+    )
+
     for m in hr_msgs:
         if m.direction == "HR_TO_MANAGER" and not m.is_read:
             m.is_read = True
 
-    employees = db.query(Employee).filter(Employee.is_active == True).order_by(Employee.full_name.asc()).all()
+    employees_q = db.query(Employee).filter(Employee.is_active == True)
+
+    q_clean = (q or "").strip()
+    if q_clean:
+        like_q = f"%{q_clean}%"
+        employees_q = employees_q.filter(
+            (Employee.full_name.ilike(like_q)) |
+            (Employee.employee_code.ilike(like_q))
+        )
+
+    employees = employees_q.order_by(Employee.full_name.asc()).all()
+
     emp_rows = []
     for e in employees:
         last = (
             db.query(Message)
-            .filter(Message.employee_id == e.id, Message.direction == "MANAGER_TO_EMP")
+            .filter(
+                Message.employee_id == e.id,
+                Message.direction == "MANAGER_TO_EMP",
+            )
             .order_by(Message.created_at.desc())
             .first()
         )
         emp_rows.append({"emp": e, "last": last})
+
     db.commit()
 
     return templates.TemplateResponse(
         "manager_messages.html",
-        {"request": request, "user": u, "hr_messages": hr_msgs, "employee_rows": emp_rows},
+        {
+            "request": request,
+            "user": u,
+            "hr_messages": hr_msgs,
+            "employee_rows": emp_rows,
+            "q": q or "",
+        },
     )
-
 
 @app.post("/manager/messages/hr", response_class=HTMLResponse)
 def manager_messages_send_hr(request: Request, body: str = Form(...), db: Session = Depends(get_db)):
