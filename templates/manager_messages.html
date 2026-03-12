@@ -30,29 +30,45 @@
     </div>
 
     <div class="col-12 col-lg-7">
-      <div class="card shadow-sm rounded-4 border-0">
-        <div class="card-body p-4">
-          <h5 class="mb-3">إرسال رسالة لموظف</h5>
-          <div class="d-flex flex-column gap-3">
-            {% for row in employee_rows %}
-              <form method="post" action="/manager/messages/employee/{{ row.emp.id }}" class="border rounded-4 p-3">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                  <div>
-                    <div class="fw-semibold">{{ row.emp.full_name }}</div>
-                    <div class="small text-muted">{{ row.emp.employee_code }}</div>
-                  </div>
-                  {% if row.last %}
-                    <div class="small text-muted">آخر إرسال: {{ row.last.created_at }}</div>
-                  {% endif %}
-                </div>
-                <textarea class="form-control mb-2" name="body" rows="3" placeholder="رسالة للموظف..." required></textarea>
-                <button class="btn btn-outline-primary">إرسال</button>
-              </form>
-            {% endfor %}
-          </div>
+  <div class="card shadow-sm rounded-4 border-0">
+    <div class="card-body p-4">
+      <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+        <div>
+          <h5 class="mb-1">إرسال رسالة لموظف</h5>
+          <div class="small text-muted">ابحث بالاسم أو رقم الموظف</div>
         </div>
+
+        <form method="get" action="/manager/messages" class="d-flex gap-2">
+          <input class="form-control" type="text" name="q" value="{{ q }}" placeholder="ابحث بالاسم أو الـ ID">
+          <button class="btn btn-outline-primary">بحث</button>
+        </form>
       </div>
+
+      {% if employee_rows %}
+        <div class="d-flex flex-column gap-3">
+          {% for row in employee_rows %}
+            <form method="post" action="/manager/messages/employee/{{ row.emp.id }}" class="border rounded-4 p-3">
+              <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+                <div>
+                  <div class="fw-semibold">{{ row.emp.full_name }}</div>
+                  <div class="small text-muted">{{ row.emp.employee_code }}</div>
+                </div>
+                {% if row.last %}
+                  <div class="small text-muted">آخر إرسال: {{ row.last.created_at }}</div>
+                {% endif %}
+              </div>
+
+              <textarea class="form-control mb-2" name="body" rows="3" placeholder="رسالة للموظف..." required></textarea>
+              <button class="btn btn-outline-primary">إرسال</button>
+            </form>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="alert alert-secondary mb-0">لا يوجد موظف مطابق للبحث.</div>
+      {% endif %}
     </div>
+  </div>
+</div>
   </div>
 </div>
 {% endblock %}
