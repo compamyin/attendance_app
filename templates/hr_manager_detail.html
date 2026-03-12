@@ -1,0 +1,63 @@
+{% extends "_modern_base.html" %}
+{% block title %}بيانات مدير{% endblock %}
+{% block brand_title %}HR{% endblock %}
+{% block brand_subtitle %}إدارة حساب المدير{% endblock %}
+{% block content %}
+<div class="container py-4" style="max-width:900px">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h3 class="mb-0">المدير: {{ manager.username }}</h3>
+      <div class="text-muted small">ID: {{ manager.id }} • Role: {{ manager.role }}</div>
+    </div>
+    <a class="btn btn-outline-secondary btn-sm" href="/hr/employees">رجوع</a>
+  </div>
+
+  {% if error %}
+    <div class="alert alert-danger">{{ error }}</div>
+  {% endif %}
+  {% if success %}
+    <div class="alert alert-success">{{ success }}</div>
+  {% endif %}
+
+  <form method="post" action="/hr/managers/{{ manager.id }}/update" class="card border-0 shadow-sm">
+    <div class="card-body p-4">
+      <div class="row g-3">
+        <div class="col-md-8">
+          <label class="form-label">اسم المستخدم</label>
+          <input class="form-control" name="username" value="{{ manager.username }}" required>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">الحالة</label>
+          <select class="form-select" name="is_active">
+            <option value="1" {% if manager.is_active %}selected{% endif %}>Active</option>
+            <option value="0" {% if not manager.is_active %}selected{% endif %}>Inactive</option>
+          </select>
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">كلمة سر جديدة</label>
+          <input class="form-control" name="new_password" type="password" placeholder="اتركها فارغة إذا لا تريد التغيير">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">تأكيد كلمة السر</label>
+          <input class="form-control" name="confirm_password" type="password">
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">PIN جديد</label>
+          <input class="form-control" name="new_pin" type="password" placeholder="اتركه فارغ إذا لا تريد التغيير">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">تأكيد PIN</label>
+          <input class="form-control" name="confirm_pin" type="password">
+        </div>
+      </div>
+
+      <div class="d-flex gap-2 mt-4">
+        <button class="btn btn-primary">حفظ التعديلات</button>
+        <a class="btn btn-outline-primary" href="/hr/messages/manager/{{ manager.id }}">رسائل المدير</a>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}
