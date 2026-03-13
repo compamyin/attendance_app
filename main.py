@@ -306,8 +306,7 @@ def _ceil_minutes(delta_seconds: int) -> int:
 
 def compute_early_leave_segments(
     sessions: list[dict],
-    d: date,
-    work_end: time | None,
+    sched_end_ts: datetime | None,
     early_leave_grace: int,
 ):
     """Return list of early-leave segments for the day.
@@ -317,13 +316,12 @@ def compute_early_leave_segments(
     """
     segs = []
     if not work_end:
+    if not sched_end_ts:
         return segs
 
-    end_dt = datetime.combine(d, work_end)
-    end_ts = _as_naive(end_dt)
+    end_ts = _as_naive(sched_end_ts)
     if not end_ts:
         return segs
-
     # Breaks inside the day (OUT -> next IN), clamped to sched end.
     try:
         for i in range(len(sessions) - 1):
@@ -4685,6 +4683,13 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
     # settings precedence: employee overrides daily settings
     work_start = emp.work_start or (settings.work_start if settings else None)
     work_end = emp.work_end or (settings.work_end if settings else None)
+    sched_start_ts = datetime.combine(d, work_start) if work_start else None
+    sched_end_ts = datetime.combine(d, work_end) if work_end else None
+
+    # إذا كانت نهاية الدوام أصغر أو مساوية لبداية الدوام
+    # فهذا يعني أن الشفت يعبر منتصف الليل
+    if sched_start_ts and sched_end_ts and sched_end_ts <= sched_start_ts:
+        sched_end_ts = sched_end_ts + timedelta(days=1)
     grace = emp.grace_minutes
     if grace is None:
         grace = (settings.grace_minutes if settings else 0)
@@ -4699,15 +4704,13 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
     overtime_min = max(overtime_min, 0)
     
     late_minutes = 0
-    if late_anchor_in and work_start:
-      start_time_dt = datetime.combine(d, work_start)
-      late_in_ts = _as_naive(late_anchor_in.server_timestamp)
-      
-      if late_in_ts and late_in_ts > start_time_dt:
-         late_from_start = _ceil_minutes(int((late_in_ts - start_time_dt).total_seconds()))
-         if late_from_start > grace:
-             late_minutes = int(late_from_start)
+    if late_anchor_in and sched_start_ts:
+    late_in_ts = _as_naive(late_anchor_in.server_timestamp)
 
+    if late_in_ts and late_in_ts > sched_start_ts:
+        late_from_start = _ceil_minutes(int((late_in_ts - sched_start_ts).total_seconds()))
+        if late_from_start > grace:
+            late_minutes = int(late_from_start)
    
 
     work_minutes = None
@@ -4736,8 +4739,7 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
     # Minutes worked after scheduled end (used as a visible event for HR review)
     post_shift_extra_minutes = 0
     try:
-        if work_end:
-            sched_end_ts = datetime.combine(d, work_end)
+        if sched_end_ts:
             for s in sessions:
                 i_log = s.get("in")
                 o_log = s.get("out")
@@ -4766,8 +4768,7 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
     # تُحسب من الخروج الفعلي قبل نهاية الدوام، وليس فقط من نقص الساعات
     early_leave_segments = compute_early_leave_segments(
         sessions=sessions,
-        d=d,
-        work_end=work_end,
+        sched_end_ts=sched_end_ts,
         early_leave_grace=early_leave_grace,
     )
     early_leave_total_minutes = sum(int(seg.get("minutes") or 0) for seg in early_leave_segments)
@@ -5000,8 +5001,8 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
         "date": d,
         "emp": emp,
         "status": status,
-        "sched_start": datetime.combine(d, work_start) if work_start else None,
-        "sched_end": datetime.combine(d, work_end) if work_end else None,
+        "sched_start": sched_start_ts,
+        "sched_end": sched_end_ts,
         "first_in": _as_naive(first_in.server_timestamp) if first_in else None,
         "first_in_log": first_in,
         "last_out": _as_naive(last_out.server_timestamp) if last_out else None,
