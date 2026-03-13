@@ -5349,7 +5349,23 @@ def hr_log_detail(request: Request, log_id: int, db: Session = Depends(get_db)):
             "emp": emp,
         },
     )
-
+@app.get("/manager/log/{log_id}", response_class=HTMLResponse)
+def manager_log_detail(request: Request, log_id: int, db: Session = Depends(get_db)):
+    u = get_current_manager_user(request, db)
+    log = db.get(AttendanceLog, log_id)
+    if not log:
+        raise HTTPException(status_code=404, detail="Not found")
+    emp = db.get(Employee, log.employee_id)
+    return templates.TemplateResponse(
+        "hr_log_detail.html",
+        {
+            "request": request,
+            "user": u,
+            "log": log,
+            "emp": emp,
+            "page_owner": "manager",
+        },
+    )
 @app.get("/hr/report", response_class=HTMLResponse)
 def hr_report(request: Request, db: Session = Depends(get_db), date_str: str | None = None, month: str | None = None, emp_id: str | None = None):
     try:
