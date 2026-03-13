@@ -2152,7 +2152,249 @@ def admin_dashboard(request: Request, db: Session = Depends(get_db)):
 
 # Admin helpers (temporary)
 # -------------------------
+@app.get("/admin/report", response_class=HTMLResponse)
+def admin_report(
+    request: Request,
+    db: Session = Depends(get_db),
+    date_str: str | None = None,
+    month: str | None = None,
+    emp_id: str | None = None,
+    ):
+    try:
+        u = get_current_admin_user(request, db)
+    except HTTPException:
+        return RedirectResponse(url="/admin/login", status_code=302)
 
+    employees_all = db.query(Employee).order_by(Employee.employee_code.asc()).all()
+
+    # Defaults
+    if not date_str and not month:
+        t = today_tz()
+        month = f"{t.year:04d}-{t.month:02d}"
+
+    emp_id_int: int | None = None
+    if emp_id is not None:
+        s = str(emp_id).strip()
+        if s.isdigit():
+            try:
+                emp_id_int = int(s)
+            except Exception:
+                emp_id_int = None
+
+    # employee daily
+    if emp_id_int:
+        if date_str:
+            try:
+                d = date.fromisoformat(date_str.strip())
+            except Exception:
+                d = today_tz()
+
+            settings = get_effective_daily_settings(db, d)
+            emp = db.get(Employee, emp_id_int)
+            rows = []
+            if emp:
+                rows = [compute_day(db, emp, d, settings)]
+
+            return templates.TemplateResponse(
+                "hr_report.html",
+                {
+                    "request": request,
+                    "today": today_tz().isoformat(),
+                    "user": u,
+                    "mode": "employee_daily",
+                    "date": d,
+                    "date_str": (date_str or d.isoformat()),
+                    "month": "",
+                    "emp_id": emp_id_int,
+                    "employees": employees_all,
+                    "rows": rows,
+                    "totals": None,
+                    "report_owner": "admin",
+                },
+            )
+
+        # employee monthly
+        try:
+            y, m = (month or "").split("-")
+            year, mon = int(y), int(m)
+        except Exception:
+            t = today_tz()
+            year, mon = t.year, t.month
+            month = f"{year:04d}-{mon:02d}"
+
+        first = date(year, mon, 1)
+        if mon == 12:
+            next_first = date(year + 1, 1, 1)
+        else:
+            next_first = date(year, mon + 1, 1)
+        days = (next_first - first).days
+
+        emp = db.get(Employee, emp_id_int)
+        daily_rows = []
+        t_today = today_tz()
+        month_upto = t_today if (year == t_today.year and mon == t_today.month) else None
+
+        if emp:
+            for i in range(days):
+                d = first + timedelta(days=i)
+                if month_upto and d > month_upto:
+                    break
+                settings = get_or_none_daily_settings(db, d)
+                daily_rows.append(compute_day(db, emp, d, settings))
+
+        default_settings = db.get(DailySettings, today_tz())
+        upto = today_tz() if (year == today_tz().year and mon == today_tz().month) else None
+        summary = None
+        if emp:
+            summary, _breakdown = compute_month(db, emp, year, mon, default_settings, upto=upto)
+
+        return templates.TemplateResponse(
+            "hr_report.html",
+            {
+                "request": request,
+                "today": today_tz().isoformat(),
+                "user": u,
+                "mode": "employee_monthly",
+                "date": None,
+                "date_str": (date_str or ""),
+                "month": f"{year:04d}-{mon:02d}",
+                "emp_id": emp_id_int,
+                "employees": employees_all,
+                "rows": daily_rows,
+                "summary": summary,
+                "totals": None,
+                "report_owner": "admin",
+            },
+        )
+
+    # monthly all
+    try:
+        y, m = (month or "").split("-")
+        year, mon = int(y), int(m)
+    except Exception:
+        t = today_tz()
+        year, mon = t.year, t.month
+        month = f"{year:04d}-{mon:02d}"
+
+    first = date(year, mon, 1)
+    if mon == 12:
+        next_first = date(year + 1, 1, 1)
+    else:
+        next_first = date(year, mon + 1, 1)
+    days_in_month = (next_first - first).days
+
+    default_settings = db.get(DailySettings, today_tz())
+    upto = today_tz() if (year == today_tz().year and mon == today_tz().month) else None
+
+    rows = []
+    totals = {
+        "grand_total": 0.0,
+        "salary_monthly": 0.0,
+        "absent_deduction": 0.0,
+        "late_deduction": 0.0,
+        "early_leave_deduction": 0.0,
+        "overtime_add": 0.0,
+        "bonus_add": 0.0,
+        "manual_adjustments_total": 0.0,
+        "total_deductions": 0.0,
+        "total_additions": 0.0,
+        "adjustments_total": 0.0,
+    }
+
+    month_key = f"{year:04d}-{mon:02d}"
+    batch = db.query(PayrollBatch).filter(PayrollBatch.month == month_key).first()
+
+    for e in employees_all:
+        present_days = 0
+        absent_days = 0
+        total_late = 0
+        total_overtime = 0
+        total_early_leave = 0
+        late_days = 0
+        total_overtime_raw = 0
+        total_early_leave_raw = 0
+
+        for i in range(days_in_month):
+            d = first + timedelta(days=i)
+            if upto and d > upto:
+                break
+            settings = get_or_none_daily_settings(db, d)
+            r = compute_day(db, e, d, settings)
+
+            if r["status"] in ("PRESENT", "INCOMPLETE"):
+                present_days += 1
+            elif r["status"] == "ABSENT":
+                absent_days += 1
+
+            late_now = int(r.get("late") or 0)
+            if late_now > 0:
+                late_days += 1
+
+            total_late += late_now
+            total_early_leave += int(r.get("early_leave") or 0)
+            total_early_leave_raw += int(r.get("raw_early_leave") or 0)
+            total_overtime += int(r.get("overtime") or 0)
+            total_overtime_raw += int(r.get("raw_overtime") or 0)
+
+        summary, _breakdown = compute_month(db, e, year, mon, default_settings, upto=upto)
+
+        row = {
+            "emp": e,
+            "present_days": present_days,
+            "absent_days": absent_days,
+            "late_minutes": total_late,
+            "early_leave_minutes": total_early_leave,
+            "overtime_minutes": total_overtime,
+            "summary": summary,
+            "late_days": late_days,
+            "early_leave_raw_minutes": total_early_leave_raw,
+            "overtime_raw_minutes": total_overtime_raw,
+        }
+        rows.append(row)
+
+        try:
+            totals["grand_total"] += float(summary.get("total") or 0)
+        except Exception:
+            pass
+
+        for k in (
+            "salary_monthly",
+            "absent_deduction",
+            "late_deduction",
+            "early_leave_deduction",
+            "overtime_add",
+            "bonus_add",
+            "manual_adjustments_total",
+            "total_deductions",
+            "total_additions",
+            "adjustments_total",
+        ):
+            try:
+                totals[k] += float(summary.get(k) or 0)
+            except Exception:
+                pass
+
+    for k in list(totals.keys()):
+        totals[k] = round(float(totals[k] or 0.0), 3)
+
+    return templates.TemplateResponse(
+        "hr_report.html",
+        {
+            "request": request,
+            "today": today_tz().isoformat(),
+            "user": u,
+            "mode": "monthly_all",
+            "date": None,
+            "date_str": (date_str or ""),
+            "month": f"{year:04d}-{mon:02d}",
+            "emp_id": 0,
+            "employees": employees_all,
+            "rows": rows,
+            "totals": totals,
+            "batch": batch,
+            "report_owner": "admin",
+        },
+    )
 @app.get("/admin/create-employee", response_class=HTMLResponse)
 def admin_create_employee_page(request: Request, db: Session = Depends(get_db)):
     try:
