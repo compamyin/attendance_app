@@ -1,0 +1,131 @@
+{% extends "_manager_base.html" %}
+{% block title %}تفاصيل الفاتورة{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4" style="max-width:1300px">
+  <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+      <h3 class="mb-1">تفاصيل الفاتورة</h3>
+      <div class="text-muted">عرض فقط — بدون اعتماد أو رفض أو تعديل</div>
+    </div>
+    <a href="/manager/invoices/{{ invoice.employee_id }}" class="btn btn-outline-secondary rounded-pill px-4">رجوع</a>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-5">
+      <div class="card border-0 shadow-sm rounded-4 h-100">
+        <div class="card-body p-4">
+          <h5 class="mb-3">معلومات الفاتورة</h5>
+
+          <div class="row g-3 small">
+            <div class="col-6">
+              <div class="text-muted">اسم الموظف</div>
+              <div class="fw-semibold">{{ invoice.employee.full_name if invoice.employee else "—" }}</div>
+            </div>
+            <div class="col-6">
+              <div class="text-muted">اسم الورشة</div>
+              <div class="fw-semibold">{{ invoice.workshop_name }}</div>
+            </div>
+            <div class="col-6">
+              <div class="text-muted">الموقع</div>
+              <div class="fw-semibold">{{ invoice.location or "—" }}</div>
+            </div>
+            <div class="col-6">
+              <div class="text-muted">التاريخ</div>
+              <div class="fw-semibold">{{ invoice.invoice_date.strftime('%Y-%m-%d') if invoice.invoice_date else "—" }}</div>
+            </div>
+            <div class="col-6">
+              <div class="text-muted">وقت الإرسال</div>
+              <div class="fw-semibold">
+                {% if invoice.submitted_at %}
+                  {{ invoice.submitted_at.strftime('%Y-%m-%d %H:%M') }}
+                {% else %}
+                  —
+                {% endif %}
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="text-muted">المجموع</div>
+              <div class="fw-semibold">{{ "%.2f"|format(invoice.total_amount or 0) }}</div>
+            </div>
+            <div class="col-6">
+              <div class="text-muted">إجمالي الصورة</div>
+              <div class="fw-semibold">
+                {% if invoice.image_total_amount is not none %}
+                  {{ "%.2f"|format(invoice.image_total_amount) }}
+                {% else %}
+                  —
+                {% endif %}
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="text-muted">الحالة</div>
+              <div class="fw-semibold">{{ invoice_status_label_for_hr(invoice.status) }}</div>
+            </div>
+            <div class="col-12">
+              <div class="text-muted">ملاحظات HR</div>
+              <div class="fw-semibold">{{ invoice.hr_note or "—" }}</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-7">
+      <div class="card border-0 shadow-sm rounded-4 mb-4">
+        <div class="card-body p-4">
+          <h5 class="mb-3">تفاصيل البنود</h5>
+
+          {% if items %}
+          <div class="table-responsive">
+            <table class="table align-middle mb-0">
+              <thead>
+                <tr>
+                  <th>الصنف</th>
+                  <th style="width:180px;">السعر</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for item in items %}
+                <tr>
+                  <td>{{ item.item_name }}</td>
+                  <td>{{ "%.2f"|format(item.price or 0) }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+            <div class="text-muted">لا توجد بنود.</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="card border-0 shadow-sm rounded-4">
+        <div class="card-body p-4">
+          <h5 class="mb-3">الصور المرفقة</h5>
+
+          {% if images %}
+          <div class="row g-3">
+            {% for img in images %}
+            <div class="col-6 col-md-4">
+              <a href="/media/{{ img.image_path }}" target="_blank">
+                <img
+                  src="/media/{{ img.image_path }}"
+                  class="img-fluid rounded-4 border shadow-sm"
+                  style="height:220px; width:100%; object-fit:cover;"
+                >
+              </a>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+            <div class="text-muted">لا توجد صور مرفقة.</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
