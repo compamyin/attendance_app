@@ -34,7 +34,10 @@
         <span class="left"><i class="bi bi-bar-chart"></i> Employee Reports</span>
         <span class="hint">Trends</span>
       </a>
-
+      <a class="navbtn {% if '/manager/invoices' in path or '/manager/invoice/' in path %}active{% endif %}" href="/manager/invoices">
+        <span class="left"><i class="bi bi-receipt"></i> Invoices</span>
+        <span class="hint">Read-only</span>
+      </a>
       <a class="navbtn {% if '/manager/payroll' in path %}active{% endif %}" href="/manager/payroll">
         <span class="left"><i class="bi bi-cash-coin"></i> Payroll Overview</span>
         <span class="hint">Read-only</span>
