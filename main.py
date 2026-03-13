@@ -858,11 +858,13 @@ async def clock_api(
         media_rel_path = str(out_path.relative_to(MEDIA_DIR)).replace("\\", "/")
     ua = request.headers.get("user-agent")
     ip = request.client.host if request.client else None
-
+    shift_day = today_tz()
+    if action == "OUT" and last and last.action == "IN":
+        shift_day = last.day_date
     log = AttendanceLog(
         employee_id=emp.id,
         action=action,
-        day_date=today_tz(),  # ✅ هذا المهم
+        day_date=shift_day,
         server_timestamp=now_tz().replace(tzinfo=None),
         lat=lat,
         lng=lng,
@@ -882,7 +884,7 @@ async def clock_api(
     db.refresh(log)
 
     # Find today's first IN and last OUT (for map_url reference)
-    d = today_tz()
+    d = log.day_date    
     today_logs = (
         db.query(AttendanceLog)
         .filter(
