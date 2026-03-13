@@ -84,8 +84,8 @@
 {% endblock %}
 {% block extra_js %}
 <script>
-  const labels = {{ spark.labels | tojson }};
-  const values = {{ spark.values | tojson }};
+  const labels = {{ spark["labels"] | tojson }};
+  const values = {{ spark["values"] | tojson }};
   const ctx = document.getElementById('spark');
   if(ctx){
     new Chart(ctx, {
