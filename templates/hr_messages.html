@@ -1,5 +1,5 @@
 {% extends "_modern_base.html" %}
-{% block title %}رسائل الموظفين{% endblock %}
+{% block title %}رسائل الموظفين والمدراء{% endblock %}
 {% block brand_title %}HR{% endblock %}
 {% block brand_subtitle %}نفس العمليات — تصميم أحدث{% endblock %}
 {% block content %}
@@ -12,7 +12,7 @@
     {% endif %}
 
     <div class="d-flex justify-content-between align-items-center mb-3">
-      <h4 class="mb-0">الرسائل</h4>
+      <h4 class="mb-0">الرسائل (الموظفون + المدراء)</h4>
       <span class="text-muted small">غير مقروء: {{ nav.unread_msgs if nav else 0 }}</span>
     </div>
 
@@ -34,7 +34,7 @@
           <table class="table table-hover align-middle mb-0">
             <thead class="table-light">
               <tr>
-                <th>الموظف</th>
+                <th>الجهة</th>
                 <th>آخر رسالة</th>
                 <th class="text-center">غير مقروء</th>
                 <th></th>
@@ -45,7 +45,7 @@
                 <tr>
                   <td>
                     <div class="fw-semibold">{{ r.label }}</div>
-                    <div class="small text-muted mono">#{{ r.kind }} • {{ r.sub }}</div>
+                    <div class="small text-muted mono">{% if r.kind == "manager" %}مدير{% else %}موظف{% endif %} • {{ r.sub }}</div>
                   </td>
                   <td class="text-muted small" style="max-width:520px">
                     {% if r.last %}
