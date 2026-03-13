@@ -275,6 +275,7 @@ app.mount("/videos", StaticFiles(directory=str(VIDEOS_DIR)), name="videos")
 
 EMP_COOKIE = "emp_token"
 HR_COOKIE = "hr_token"
+MANAGER_COOKIE = "manager_token"
 ADMIN_COOKIE = "admin_token"
 
 
@@ -560,8 +561,7 @@ def get_current_admin_user(request: Request, db: Session) -> User:
     return u
 
 def get_current_manager_user(request: Request, db: Session) -> User:
-    """Manager portal auth. Uses the same HR cookie, but restricts role."""
-    token = request.cookies.get(HR_COOKIE)
+    token = request.cookies.get(MANAGER_COOKIE)
     if not token:
         raise HTTPException(status_code=401, detail="Not logged in")
 
@@ -572,9 +572,9 @@ def get_current_manager_user(request: Request, db: Session) -> User:
     u = db.get(User, int(payload["user_id"]))
     if not u or not u.is_active:
         raise HTTPException(status_code=401, detail="User not active")
-    if u.role not in ("MANAGER", "ADMIN"):
+    if u.role != "MANAGER":
         raise HTTPException(status_code=403, detail="Forbidden")
-    return u
+    return u   
 
 
 
@@ -2600,7 +2600,7 @@ def manager_login(
     token = create_token({"user_id": u.id})
     resp = RedirectResponse(url="/manager", status_code=302)
     resp.set_cookie(
-        HR_COOKIE,
+        MANAGER_COOKIE,
         token,
         httponly=True,
         samesite="lax",
@@ -2609,7 +2609,11 @@ def manager_login(
     )
     return resp
 
-
+@app.get("/manager/logout")
+def manager_logout():
+    resp = RedirectResponse(url="/manager/login", status_code=302)
+    resp.delete_cookie(MANAGER_COOKIE)
+    return resp
 @app.get("/manager", response_class=HTMLResponse)
 @app.get("/manager/dashboard", response_class=HTMLResponse)
 def manager_dashboard(
