@@ -1,5 +1,8 @@
 {% extends "_modern_base.html" %}
 {% set report_owner = report_owner|default('hr') %}
+{% set report_home = '/admin/dashboard' if report_owner == 'admin' else ('/manager' if report_owner == 'manager' else '/hr/dashboard') %}
+{% set report_root = '/admin/report' if report_owner == 'admin' else ('/manager/report' if report_owner == 'manager' else '/hr/report') %}
+{% set report_log_root = '/manager/log' if report_owner == 'manager' else '/hr/log' %}
 {% block title %}التقارير{% endblock %}
 {% block brand_title %}HR{% endblock %}
 {% block brand_subtitle %}نفس العمليات — تصميم أحدث{% endblock %}
@@ -7,7 +10,7 @@
   <div class="container py-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
       <h3 class="mb-0">التقارير</h3>
-      <a class="btn btn-outline-secondary btn-sm" href="{{ '/admin/dashboard' if report_owner == 'admin' else '/hr/dashboard' }}">رجوع</a>
+      <a class="btn btn-outline-secondary btn-sm" href="{{ report_home }}">رجوع</a>
     </div>
 
     <div class="card mb-3">
@@ -59,7 +62,7 @@
           </div>
 
           <div class="col-6 col-lg-1">
-            <a class="btn btn-outline-dark w-100 h-100" href="{{ '/admin/report' if report_owner == 'admin' else '/hr/report' }}">إعادة ضبط</a>
+            <a class="btn btn-outline-dark w-100 h-100" href="{{ report_root }}">إعادة ضبط</a>
           </div>
         </form>
 
@@ -177,7 +180,7 @@
 <td class="money">{{ '%.2f'|format(r.summary.salary_monthly or 0) }}</td>
 <td class="money" style="font-weight:800;">{{ '%.2f'|format(r.summary.total or 0) }}</td>
                 <td class="text-end">
-                  <a class="btn btn-sm btn-outline-primary" href="{{ '/admin/report' if report_owner == 'admin' else '/hr/report' }}?emp_id={{ r.emp.id }}&month={{ month }}">ملف/تقرير</a>
+                  <a class="btn btn-sm btn-outline-primary" href="{{ report_root }}?emp_id={{ r.emp.id }}&month={{ month }}">ملف/تقرير</a>
                 </td>
               </tr>
             {% endfor %}
@@ -217,7 +220,7 @@
                  <a class="btn btn-outline-secondary btn-sm" href="/hr/employees/{{ emp.id }}">الإعدادات</a>
               {% endif %}
 
-              <a class="btn btn-outline-secondary btn-sm" href="{{ '/admin/dashboard' if report_owner == 'admin' else '/hr/dashboard' }}">رجوع</a>
+              <a class="btn btn-outline-secondary btn-sm" href="{{ report_home }}">رجوع</a>
 
 
               
@@ -448,7 +451,7 @@
       const metaEl = document.getElementById('logMeta');
       const openBtn = document.getElementById('openLogDetails');
 
-      openBtn.href = '/hr/log/' + log.id;
+      openBtn.href = '{{ report_log_root }}' + '/' + log.id;
 
       const v = _normalizeVideoPath(log.video);
       if(v){
