@@ -1,4 +1,5 @@
 {% extends "_modern_base.html" %}
+{% set report_owner = report_owner|default('hr') %}
 {% block title %}التقارير{% endblock %}
 {% block brand_title %}HR{% endblock %}
 {% block brand_subtitle %}نفس العمليات — تصميم أحدث{% endblock %}
@@ -6,7 +7,7 @@
   <div class="container py-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
       <h3 class="mb-0">التقارير</h3>
-      <a class="btn btn-outline-secondary btn-sm" href="/hr/dashboard">رجوع</a>
+      <a class="btn btn-outline-secondary btn-sm" href="{{ '/admin/dashboard' if report_owner == 'admin' else '/hr/dashboard' }}">رجوع</a>
     </div>
 
     <div class="card mb-3">
@@ -58,22 +59,24 @@
           </div>
 
           <div class="col-6 col-lg-1">
-            <a class="btn btn-outline-dark w-100 h-100" href="/hr/report">إعادة ضبط</a>
+            <a class="btn btn-outline-dark w-100 h-100" href="{{ '/admin/report' if report_owner == 'admin' else '/hr/report' }}">إعادة ضبط</a>
           </div>
         </form>
 
+        {% if report_owner == 'hr' %}
         <div class="d-flex flex-wrap gap-2 mt-3">
           <a class="btn btn-sm btn-outline-danger" href="/hr/review?kind=absence{% if date_str %}&date_str={{ date_str }}{% endif %}">مراجعة الغياب</a>
           <a class="btn btn-sm btn-outline-warning" href="/hr/review?kind=late{% if date_str %}&date_str={{ date_str }}{% endif %}">مراجعة التأخير</a>
           <a class="btn btn-sm btn-outline-primary" href="/hr/review?kind=early_leave{% if date_str %}&date_str={{ date_str }}{% endif %}">مراجعة المغادرة</a>
           <div class="muted" style="font-size:12px;">اختَر يوم من فوق إذا بدك فلترة ليوم محدد. بدون تاريخ = يعرض كل الحالات المعلّقة.</div>
         </div>
+        {% endif %}
 
       </div>
     </div>
 
 
-    {% if mode == 'monthly_all' and month %}
+    {% if report_owner == 'hr' and mode == 'monthly_all' and month %}
       <div class="d-flex justify-content-end align-items-center gap-2 mb-3">
         <form method="post" action="/hr/commit/month" class="d-flex gap-2 align-items-center">
           <input type="hidden" name="month" value="{{ month }}">
@@ -174,7 +177,7 @@
 <td class="money">{{ '%.2f'|format(r.summary.salary_monthly or 0) }}</td>
 <td class="money" style="font-weight:800;">{{ '%.2f'|format(r.summary.total or 0) }}</td>
                 <td class="text-end">
-                  <a class="btn btn-sm btn-outline-primary" href="/hr/report?emp_id={{ r.emp.id }}&month={{ month }}">ملف/تقرير</a>
+                  <a class="btn btn-sm btn-outline-primary" href="{{ '/admin/report' if report_owner == 'admin' else '/hr/report' }}?emp_id={{ r.emp.id }}&month={{ month }}">ملف/تقرير</a>
                 </td>
               </tr>
             {% endfor %}
@@ -194,24 +197,30 @@
             </div>
             <div class="d-flex gap-2 align-items-center">
 
-              {% if mode=='employee_daily' and date %}
-                <form method="post" action="/hr/commit/day" class="d-inline">
-                  <input type="hidden" name="emp_id" value="{{ emp.id }}">
-                  <input type="hidden" name="date_str" value="{{ date.isoformat() }}">
-                  <input type="hidden" name="next_url" value="/hr/report?emp_id={{ emp.id }}&date_str={{ date.isoformat() }}">
-                  <button class="btn btn-outline-primary btn-sm" type="submit">تثبيت/توليد مخالفات اليوم</button>
-                </form>
-              {% elif mode=='employee_monthly' and month %}
-                <form method="post" action="/hr/commit/month" class="d-inline">
-                  <input type="hidden" name="month" value="{{ month }}">
-                  <input type="hidden" name="emp_id" value="{{ emp.id }}">
-                  <input type="hidden" name="next_url" value="/hr/report?emp_id={{ emp.id }}&month={{ month }}">
-                  <button class="btn btn-outline-primary btn-sm" type="submit">تثبيت/توليد مخالفات الشهر</button>
-                </form>
+              {% if report_owner == 'hr' %}
+                {% if mode=='employee_daily' and date %}
+                  <form method="post" action="/hr/commit/day" class="d-inline">
+                    <input type="hidden" name="emp_id" value="{{ emp.id }}">
+                    <input type="hidden" name="date_str" value="{{ date.isoformat() }}">
+                    <input type="hidden" name="next_url" value="/hr/report?emp_id={{ emp.id }}&date_str={{ date.isoformat() }}">
+                    <button class="btn btn-outline-primary btn-sm" type="submit">تثبيت/توليد مخالفات اليوم</button>
+                  </form>
+                {% elif mode=='employee_monthly' and month %}
+                  <form method="post" action="/hr/commit/month" class="d-inline">
+                    <input type="hidden" name="month" value="{{ month }}">
+                    <input type="hidden" name="emp_id" value="{{ emp.id }}">
+                    <input type="hidden" name="next_url" value="/hr/report?emp_id={{ emp.id }}&month={{ month }}">
+                    <button class="btn btn-outline-primary btn-sm" type="submit">تثبيت/توليد مخالفات الشهر</button>
+                  </form>
+                {% endif %}
+
+                 <a class="btn btn-outline-secondary btn-sm" href="/hr/employees/{{ emp.id }}">الإعدادات</a>
               {% endif %}
 
-              <a class="btn btn-outline-secondary btn-sm" href="/hr/employees/{{ emp.id }}">الإعدادات</a>
-              <a class="btn btn-outline-secondary btn-sm" href="/hr/dashboard">رجوع</a>
+              <a class="btn btn-outline-secondary btn-sm" href="{{ '/admin/dashboard' if report_owner == 'admin' else '/hr/dashboard' }}">رجوع</a>
+
+
+              
             </div>
           </div>
           {% if mode=='employee_monthly' and summary %}
@@ -271,7 +280,9 @@
                   <button type="button" class="btn btn-sm btn-outline-warning" onclick="openLogModal({{ loop.index }}, 'WORK')">
                   WORK ({{ r.work_docs_count or 0 }})
                   </button>
+                  {% if report_owner == 'hr' %}
                   <a class="btn btn-sm btn-outline-secondary" href="/hr/dashboard?date_str={{ r.date }}&emp_id={{ emp.id }}">اليوم</a>
+                  {% endif %}
                   </div>
 
                   <!-- hidden day logs payload (read by JS) -->
@@ -502,7 +513,7 @@
     }
   </script>
 
-{% if mode == "employee_daily" and rows and rows|length > 0 %}
+{% if report_owner == 'hr' and mode == "employee_daily" and rows and rows|length > 0 %}
   {% set r = rows[0] %}
   <div class="card mb-3">
     <div class="card-body">
