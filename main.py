@@ -2972,7 +2972,110 @@ def manager_reports(request: Request, db: Session = Depends(get_db), month: str 
         },
     )
 
+@app.get("/manager/invoices", response_class=HTMLResponse)
+def manager_invoices(request: Request, db: Session = Depends(get_db)):
+    try:
+        u = get_current_manager_user(request, db)
+    except HTTPException:
+        return RedirectResponse(url="/manager/login", status_code=302)
 
+    employees = (
+        db.query(Employee)
+        .join(Invoice, Invoice.employee_id == Employee.id)
+        .filter(Employee.is_active == True)
+        .distinct()
+        .order_by(Employee.full_name.asc())
+        .all()
+    )
+
+    rows = []
+    for emp in employees:
+        invoices = db.query(Invoice).filter(Invoice.employee_id == emp.id).all()
+        rows.append({
+            "employee": emp,
+            "count_all": len(invoices),
+            "count_new": len([x for x in invoices if x.status == "SUBMITTED"]),
+            "count_review": len([x for x in invoices if x.status == "UNDER_REVIEW"]),
+            "last_invoice_at": max([x.created_at for x in invoices], default=None),
+        })
+
+    return templates.TemplateResponse(
+        "manager_invoices.html",
+        {
+            "request": request,
+            "user": u,
+            "rows": rows,
+            "invoice_status_label_for_hr": invoice_status_label_for_hr,
+        },
+    )
+
+
+@app.get("/manager/invoices/{emp_id}", response_class=HTMLResponse)
+def manager_employee_invoices(emp_id: int, request: Request, db: Session = Depends(get_db)):
+    try:
+        u = get_current_manager_user(request, db)
+    except HTTPException:
+        return RedirectResponse(url="/manager/login", status_code=302)
+
+    emp = db.query(Employee).filter(Employee.id == emp_id).first()
+    if not emp:
+        raise HTTPException(status_code=404, detail="الموظف غير موجود")
+
+    invoices = (
+        db.query(Invoice)
+        .filter(Invoice.employee_id == emp.id)
+        .order_by(Invoice.created_at.desc(), Invoice.id.desc())
+        .all()
+    )
+
+    return templates.TemplateResponse(
+        "manager_employee_invoices.html",
+        {
+            "request": request,
+            "user": u,
+            "employee_obj": emp,
+            "invoices": invoices,
+            "invoice_status_label_for_hr": invoice_status_label_for_hr,
+        },
+    )
+
+
+@app.get("/manager/invoice/{invoice_id}", response_class=HTMLResponse)
+def manager_invoice_detail(invoice_id: int, request: Request, db: Session = Depends(get_db)):
+    try:
+        u = get_current_manager_user(request, db)
+    except HTTPException:
+        return RedirectResponse(url="/manager/login", status_code=302)
+
+    inv = db.query(Invoice).filter(Invoice.id == invoice_id).first()
+    if not inv:
+        raise HTTPException(status_code=404, detail="الفاتورة غير موجودة")
+
+    items = (
+        db.query(InvoiceItem)
+        .filter(InvoiceItem.invoice_id == inv.id)
+        .order_by(InvoiceItem.sort_order.asc(), InvoiceItem.id.asc())
+        .all()
+    )
+    images = (
+        db.query(InvoiceImage)
+        .filter(InvoiceImage.invoice_id == inv.id)
+        .order_by(InvoiceImage.sort_order.asc(), InvoiceImage.id.asc())
+        .all()
+    )
+
+    # مهم جدًا: لا نغير حالة الفاتورة هنا لأن صفحة المدير عرض فقط
+    return templates.TemplateResponse(
+        "manager_invoice_detail.html",
+        {
+            "request": request,
+            "user": u,
+            "invoice": inv,
+            "items": items,
+            "images": images,
+            "invoice_status_label_for_hr": invoice_status_label_for_hr,
+        },
+    )
 @app.get("/manager/payroll", response_class=HTMLResponse)
 def manager_payroll(request: Request, db: Session = Depends(get_db), month: str | None = None):
     try:
