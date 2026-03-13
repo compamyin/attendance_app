@@ -1,0 +1,68 @@
+{% extends "_manager_base.html" %}
+{% block title %}فواتير الموظف{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <div>
+      <h3 class="mb-1">فواتير الموظف: {{ employee_obj.full_name }}</h3>
+      <div class="text-muted">عرض جميع الفواتير الخاصة بالموظف — بدون تعديل</div>
+    </div>
+    <a href="/manager/invoices" class="btn btn-outline-secondary rounded-pill px-4">رجوع</a>
+  </div>
+
+  <div class="card border-0 shadow-sm rounded-4">
+    <div class="card-body p-0">
+      {% if invoices %}
+      <div class="table-responsive">
+        <table class="table align-middle mb-0">
+          <thead>
+            <tr>
+              <th class="px-4 py-3">اسم الورشة</th>
+              <th class="py-3">الموقع</th>
+              <th class="py-3">التاريخ</th>
+              <th class="py-3">التكلفة</th>
+              <th class="py-3">الحالة</th>
+              <th class="py-3">صور</th>
+              <th class="py-3 px-4"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for inv in invoices %}
+            <tr>
+              <td class="px-4 py-3 fw-semibold">{{ inv.workshop_name }}</td>
+              <td>{{ inv.location or "—" }}</td>
+              <td>{{ inv.invoice_date.strftime('%Y-%m-%d') if inv.invoice_date else "—" }}</td>
+              <td>{{ "%.2f"|format(inv.total_amount or 0) }}</td>
+              <td>
+                <span class="badge rounded-pill text-bg-secondary">
+                  {{ invoice_status_label_for_hr(inv.status) }}
+                </span>
+              </td>
+              <td>
+                {% if inv.images and inv.images|length > 0 %}
+                  <span class="badge text-bg-success rounded-pill">نعم</span>
+                {% else %}
+                  <span class="badge text-bg-light rounded-pill">لا</span>
+                {% endif %}
+              </td>
+              <td class="px-4 text-end">
+                <a href="/manager/invoice/{{ inv.id }}" class="btn btn-outline-dark btn-sm rounded-pill px-3">
+                  التفاصيل
+                </a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="p-5 text-center">
+        <i class="bi bi-folder2-open fs-1 d-block text-muted mb-3"></i>
+        <h5 class="mb-2">لا توجد فواتير لهذا الموظف</h5>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
