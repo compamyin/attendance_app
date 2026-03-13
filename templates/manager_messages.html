@@ -2,21 +2,29 @@
 {% block title %}رسائل المدير{% endblock %}
 {% block content %}
 <div class="container py-4">
+  <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+    <div>
+      <h4 class="mb-1">مركز الرسائل</h4>
+      <div class="text-muted small">محادثة مباشرة مع HR + إرسال رسائل للموظفين من نفس الصفحة</div>
+    </div>
+    <div class="badge text-bg-light border px-3 py-2">HR: {{ hr_messages|length }} رسالة</div>
+  </div>
+
   <div class="row g-3">
-    <div class="col-12 col-xl-5">
+    <div class="col-12 col-xxl-7">
       <div class="card shadow-sm rounded-4 border-0 h-100">
         <div class="card-body p-4 d-flex flex-column" style="min-height: 720px;">
-          <div class="d-flex justify-content-between align-items-center mb-3">
+          <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
             <div>
-              <h5 class="mb-1">محادثة HR</h5>
-              <div class="small text-muted">إرسال واستقبال الرسائل مع HR</div>
+              <h5 class="mb-1">شات HR</h5>
+              <div class="small text-muted">أي رسالة ترسلها هنا يجب أن تظهر في صفحة HR ضمن شات المدير نفسه</div>
             </div>
           </div>
 
-          <div class="msg-wrap flex-grow-1 mb-3" style="min-height: 360px; max-height: 360px; overflow:auto;">
+          <div class="msg-wrap flex-grow-1 mb-3 p-2 rounded-4 bg-light" style="min-height: 420px; max-height: 420px; overflow:auto;">
             {% for m in hr_messages %}
               <div class="msg-bubble {% if m.direction == 'HR_TO_MANAGER' %}them{% else %}me{% endif %}">
-                <div class="d-flex justify-content-between align-items-center">
+                <div class="d-flex justify-content-between align-items-center gap-2">
                   <div class="fw-semibold">{% if m.direction == 'HR_TO_MANAGER' %}HR{% else %}أنت{% endif %}</div>
                   <div class="msg-meta">{{ m.created_at }}</div>
                 </div>
@@ -37,12 +45,15 @@
                 {% endif %}
               </div>
             {% else %}
-              <div class="text-muted">لا يوجد رسائل مع HR.</div>
+              <div class="h-100 d-flex align-items-center justify-content-center text-muted text-center px-3">
+                لا يوجد رسائل مع HR حتى الآن. أول رسالة ترسلها من هنا يجب أن تظهر مباشرة داخل واجهة HR.
+              </div>
             {% endfor %}
           </div>
 
           <form method="post" action="/manager/messages/hr" enctype="multipart/form-data" class="mt-auto">
-            <textarea class="form-control mb-2" name="body" rows="4" placeholder="اكتب رسالة إلى HR..."></textarea>
+            <label class="form-label fw-semibold">رسالة إلى HR</label>
+            <textarea class="form-control mb-2" name="body" rows="4" placeholder="اكتب رسالة واضحة إلى HR..."></textarea>
             <input class="form-control mb-2" type="file" name="attachment" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt">
             <button class="btn btn-primary w-100">إرسال إلى HR</button>
           </form>
@@ -50,17 +61,16 @@
       </div>
     </div>
 
-    <div class="col-12 col-xl-7">
-      <div class="card shadow-sm rounded-4 border-0">
+    <div class="col-12 col-xxl-5">
+      <div class="card shadow-sm rounded-4 border-0 h-100">
         <div class="card-body p-4">
           <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
             <div>
               <h5 class="mb-1">رسائل الموظفين</h5>
-              <div class="small text-muted">ابحث بالاسم أو رقم الموظف، ثم افتح المحادثة</div>
+              <div class="small text-muted">اختر موظفًا ثم أرسل له رسالة من نفس الواجهة</div>
             </div>
-
             <form method="get" action="/manager/messages" class="d-flex gap-2">
-              <input class="form-control" type="text" name="q" value="{{ q }}" placeholder="ابحث بالاسم أو الـ ID">
+              <input class="form-control" type="text" name="q" value="{{ q }}" placeholder="ابحث بالاسم أو رقم الموظف">
               {% if selected_employee %}
                 <input type="hidden" name="emp_id" value="{{ selected_employee.id }}">
               {% endif %}
@@ -68,63 +78,50 @@
             </form>
           </div>
 
-          <div class="row g-3">
-            <div class="col-12 col-lg-5">
-              <div class="border rounded-4 overflow-hidden">
-                <div class="list-group list-group-flush" style="max-height: 560px; overflow:auto;">
-                  {% for row in employee_rows %}
-                    <a href="/manager/messages?{% if q %}q={{ q | urlencode }}&{% endif %}emp_id={{ row.emp.id }}"
-                       class="list-group-item list-group-item-action {% if selected_employee and selected_employee.id == row.emp.id %}active{% endif %}">
-                      <div class="d-flex justify-content-between align-items-center gap-2">
-                        <div>
-                          <div class="fw-semibold">{{ row.emp.full_name }}</div>
-                          <div class="small {% if selected_employee and selected_employee.id == row.emp.id %}text-white-50{% else %}text-muted{% endif %}">{{ row.emp.employee_code }}</div>
-                        </div>
-                        {% if row.last %}
-                          <div class="small {% if selected_employee and selected_employee.id == row.emp.id %}text-white-50{% else %}text-muted{% endif %}">آخر رسالة</div>
-                        {% endif %}
-                      </div>
-                    </a>
-                  {% else %}
-                    <div class="p-3 text-muted">لا يوجد موظف مطابق للبحث.</div>
-                  {% endfor %}
-                </div>
-              </div>
+          <div class="border rounded-4 overflow-hidden mb-3">
+            <div class="list-group list-group-flush" style="max-height: 260px; overflow:auto;">
+              {% for row in employee_rows %}
+                <a href="/manager/messages?{% if q %}q={{ q | urlencode }}&{% endif %}emp_id={{ row.emp.id }}"
+                   class="list-group-item list-group-item-action {% if selected_employee and selected_employee.id == row.emp.id %}active{% endif %}">
+                  <div class="fw-semibold">{{ row.emp.full_name }}</div>
+                  <div class="small {% if selected_employee and selected_employee.id == row.emp.id %}text-white-50{% else %}text-muted{% endif %}">{{ row.emp.employee_code }}</div>
+                </a>
+              {% else %}
+                <div class="p-3 text-muted">لا يوجد موظف مطابق للبحث.</div>
+              {% endfor %}
             </div>
+          </div>
 
-            <div class="col-12 col-lg-7">
-              <div class="border rounded-4 p-3 d-flex flex-column" style="min-height: 560px;">
-                {% if selected_employee %}
-                  <div class="mb-3 pb-2 border-bottom">
-                    <div class="fw-bold">{{ selected_employee.full_name }}</div>
-                    <div class="small text-muted">{{ selected_employee.employee_code }}</div>
+          <div class="border rounded-4 p-3 d-flex flex-column" style="min-height: 320px;">
+            {% if selected_employee %}
+              <div class="mb-3 pb-2 border-bottom">
+                <div class="fw-bold">{{ selected_employee.full_name }}</div>
+                <div class="small text-muted">{{ selected_employee.employee_code }}</div>
+              </div>
+
+              <div class="msg-wrap flex-grow-1 mb-3 bg-light rounded-4 p-2" style="max-height: 180px; overflow:auto;">
+                {% for m in employee_messages %}
+                  <div class="msg-bubble me">
+                    <div class="d-flex justify-content-between align-items-center">
+                      <div class="fw-semibold">أنت</div>
+                      <div class="msg-meta">{{ m.created_at }}</div>
+                    </div>
+                    <div class="mt-2" style="white-space:pre-wrap">{{ m.body }}</div>
                   </div>
-
-                  <div class="msg-wrap flex-grow-1 mb-3" style="max-height: 360px; overflow:auto;">
-                    {% for m in employee_messages %}
-                      <div class="msg-bubble me">
-                        <div class="d-flex justify-content-between align-items-center">
-                          <div class="fw-semibold">أنت</div>
-                          <div class="msg-meta">{{ m.created_at }}</div>
-                        </div>
-                        <div class="mt-2" style="white-space:pre-wrap">{{ m.body }}</div>
-                      </div>
-                    {% else %}
-                      <div class="text-muted">لا يوجد رسائل بعد لهذا الموظف.</div>
-                    {% endfor %}
-                  </div>
-
-                  <form method="post" action="/manager/messages/employee/{{ selected_employee.id }}" class="mt-auto">
-                    <textarea class="form-control mb-2" name="body" rows="4" placeholder="اكتب رسالة للموظف..." required></textarea>
-                    <button class="btn btn-outline-primary w-100">إرسال للموظف</button>
-                  </form>
                 {% else %}
-                  <div class="m-auto text-center text-muted">
-                    اختر موظفًا من القائمة حتى تظهر المحادثة هنا.
-                  </div>
-                {% endif %}
+                  <div class="text-muted">لا يوجد رسائل بعد لهذا الموظف.</div>
+                {% endfor %}
               </div>
-            </div>
+
+              <form method="post" action="/manager/messages/employee/{{ selected_employee.id }}" class="mt-auto">
+                <textarea class="form-control mb-2" name="body" rows="4" placeholder="اكتب رسالة للموظف..." required></textarea>
+                <button class="btn btn-outline-primary w-100">إرسال للموظف</button>
+              </form>
+            {% else %}
+              <div class="m-auto text-center text-muted">
+                اختر موظفًا من القائمة حتى تظهر تفاصيل المحادثة هنا.
+              </div>
+            {% endif %}
           </div>
         </div>
       </div>
