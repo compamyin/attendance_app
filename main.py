@@ -1428,8 +1428,7 @@ def manager_messages(
     try:
         u = get_current_manager_user(request, db)
     except HTTPException:
-        return RedirectResponse(url="/hr/login", status_code=302)
-
+            return RedirectResponse(url="/manager/login", status_code=302)
     hr_msgs = (
         db.query(Message)
         .filter(
@@ -1515,8 +1514,7 @@ async def manager_messages_send_hr(
     try:
         u = get_current_manager_user(request, db)
     except HTTPException:
-        return RedirectResponse(url="/hr/login", status_code=302)
-
+        return RedirectResponse(url="/manager/login", status_code=302)
     body_clean = (body or "").strip()
     attachment_path = None
     attachment_name = None
@@ -1563,12 +1561,11 @@ def manager_messages_send_employee(emp_id: int, request: Request, body: str = Fo
     try:
         u = get_current_manager_user(request, db)
     except HTTPException:
-        return RedirectResponse(url="/hr/login", status_code=302)
-
+            return RedirectResponse(url="/manager/login", status_code=302)
     emp = db.get(Employee, emp_id)
     if not emp:
         raise HTTPException(status_code=404, detail="Employee not found")
-
+     
     body_clean = (body or "").strip()
     if body_clean:
         db.add(Message(employee_id=emp.id, manager_id=u.id, direction="MANAGER_TO_EMP", body=body_clean, is_read=False))
