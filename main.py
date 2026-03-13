@@ -2152,8 +2152,8 @@ def admin_dashboard(request: Request, db: Session = Depends(get_db)):
 
 # Admin helpers (temporary)
 # -------------------------
-@app.get("/admin/report", response_class=HTMLResponse)
-def admin_report(
+@app.get("/manager/report", response_class=HTMLResponse)
+def manager_report(
     request: Request,
     db: Session = Depends(get_db),
     date_str: str | None = None,
@@ -2161,9 +2161,9 @@ def admin_report(
     emp_id: str | None = None,
     ):
     try:
-        u = get_current_admin_user(request, db)
+        u = get_current_manager_user(request, db)
     except HTTPException:
-        return RedirectResponse(url="/admin/login", status_code=302)
+        return RedirectResponse(url="/manager/login", status_code=302)
 
     employees_all = db.query(Employee).order_by(Employee.employee_code.asc()).all()
 
@@ -2209,7 +2209,7 @@ def admin_report(
                     "employees": employees_all,
                     "rows": rows,
                     "totals": None,
-                    "report_owner": "admin",
+                    "report_owner": "manager",
                 },
             )
 
@@ -2263,7 +2263,7 @@ def admin_report(
                 "rows": daily_rows,
                 "summary": summary,
                 "totals": None,
-                "report_owner": "admin",
+                "report_owner": "manager",
             },
         )
 
@@ -2392,7 +2392,7 @@ def admin_report(
             "rows": rows,
             "totals": totals,
             "batch": batch,
-            "report_owner": "admin",
+            "report_owner": "manager",
         },
     )
 @app.get("/admin/create-employee", response_class=HTMLResponse)
