@@ -1,4 +1,6 @@
 {% extends "_modern_base.html" %}
+{% set page_owner = page_owner|default('hr') %}
+{% set back_url = '/manager/report' if page_owner == 'manager' else '/hr/dashboard' %}
 {% block title %}تفاصيل السجل{% endblock %}
 {% block brand_title %}HR{% endblock %}
 {% block brand_subtitle %}نفس العمليات — تصميم أحدث{% endblock %}
@@ -9,7 +11,7 @@
       <h4 class="mb-0">تفاصيل سجل الدوام</h4>
       <div class="text-muted">{{ emp.full_name }} ({{ emp.employee_code }})</div>
     </div>
-    <a class="btn btn-outline-secondary" href="/hr/dashboard">رجوع</a>
+    <a class="btn btn-outline-secondary" href="{{ back_url }}">رجوع</a>
   </div>
 
   <div class="row g-3">
