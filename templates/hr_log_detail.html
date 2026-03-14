@@ -44,17 +44,12 @@
       <div class="card shadow-sm border-0">
         <div class="card-body">
           <div class="fw-bold mb-2">فيديو التحقق ({% if log.action == "OUT" %}60{% else %}5{% endif %} ثواني)</div>
+          
           {% if log.video_path %}
-            {# بعض قواعد البيانات تخزن الاسم فقط بدون videos/ #}
-            {% set _vp = log.video_path %}
-            {% if '/' not in _vp %}
-              {% set _vp = 'videos/' ~ _vp %}
-            {% endif %}
-            {% set _mime = '' %}
-            {% if _vp.lower().endswith('.mp4') %}{% set _mime = 'video/mp4' %}{% endif %}
-            {% if _vp.lower().endswith('.webm') %}{% set _mime = 'video/webm' %}{% endif %}
-            <video controls playsinline style="width:100%;border-radius:14px;background:#000">
-              <source src="/media/{{ _vp.replace('media/', '').lstrip('/') }}" {% if _mime %}type="{{ _mime }}"{% endif %}>
+            {% set _video_url = video_url(log.video_path) %}
+            {% set _mime = video_mime(log.video_path) %}
+            <video controls playsinline preload="metadata" style="width:100%;border-radius:14px;background:#000">
+              <source src="{{ _video_url }}" {% if _mime %}type="{{ _mime }}"{% endif %}>
             </video>
           {% else %}
             <div class="text-muted">لا يوجد فيديو لهذا السجل.</div>
