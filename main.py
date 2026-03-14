@@ -250,7 +250,9 @@ def startup_event():
         pass
 
 templates = Jinja2Templates(directory="templates")
-
+templates.env.globals["normalize_video_path"] = normalize_video_path
+templates.env.globals["video_url"] = video_url
+templates.env.globals["video_mime"] = video_mime
 # Static media (videos/photos)
 BASE_DIR = Path(__file__).resolve().parent
 MEDIA_DIR = BASE_DIR / "media"
@@ -289,7 +291,57 @@ def now_tz() -> datetime:
 
 def today_tz() -> date:
     return now_tz().date()
+def normalize_video_path(video_path: str | None) -> str:
+    """Normalize stored video path to a media-relative path.
 
+    Accepts legacy forms like:
+    - media/videos/file.webm
+    - /media/videos/file.webm
+    - videos/file.webm
+    - /videos/file.webm
+    - file.webm
+    """
+    s = (video_path or "").strip()
+    if not s:
+        return ""
+
+    s = s.replace('\\', '/')
+
+    if s.startswith('http://') or s.startswith('https://'):
+        return s
+
+    if '/media/' in s:
+        s = s.split('/media/', 1)[1]
+    elif s.startswith('media/'):
+        s = s[len('media/'):]
+
+    s = s.lstrip('/')
+
+    if s.startswith('videos/'):
+        return s
+    if s.startswith('/videos/'):
+        return s.lstrip('/')
+    if '/' not in s:
+        return f'videos/{s}'
+    return s
+
+
+def video_url(video_path: str | None) -> str:
+    s = normalize_video_path(video_path)
+    if not s:
+        return ''
+    if s.startswith('http://') or s.startswith('https://'):
+        return s
+    return f'/media/{s}'
+
+
+def video_mime(video_path: str | None) -> str:
+    s = normalize_video_path(video_path).lower()
+    if s.endswith('.mp4'):
+        return 'video/mp4'
+    if s.endswith('.webm'):
+        return 'video/webm'
+    return ''
 
 
 def _as_naive(dt: datetime | None) -> datetime | None:
