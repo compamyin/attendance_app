@@ -1587,9 +1587,7 @@ def me_payroll(request: Request, db: Session = Depends(get_db), month: str | Non
         month = f"{year:04d}-{mon:02d}"
 
     settings = db.get(DailySettings, today_tz())
-    upto = today_tz() if (year == today_tz().year and mon == today_tz().month) else None
-    summary, breakdown = compute_month(db, emp, year, mon, settings, upto=upto)
-
+    summary, breakdown, _batch = get_month_payroll_data(db, emp, year, mon, settings)
 
     # build daily rows for UI (month-to-date only)
     day_rows = []
@@ -3965,7 +3963,67 @@ def _sync_batch_records(db: Session, batch: PayrollBatch, year: int, mon: int):
             locked=(batch.status == "CLOSED"),
         )
     db.commit()
+def _summary_from_payroll_record(rec: PayrollRecord) -> dict:
+    return {
+        "salary_monthly": float(rec.salary_monthly or 0.0),
+        "days_present": int(rec.days_present or 0),
+        "days_absent": int(rec.days_absent or 0),
+        "late_minutes": int(rec.late_minutes or 0),
+        "early_leave_minutes": int(rec.early_leave_minutes or 0),
+        "overtime_minutes": int(rec.overtime_minutes or 0),
+        "absent_deduction": float(rec.absent_deduction or 0.0),
+        "late_deduction": float(rec.late_deduction or 0.0),
+        "early_leave_deduction": float(rec.early_leave_deduction or 0.0),
+        "manual_adjustments_total": float(rec.manual_adjustments_total or 0.0),
+        "overtime_add": float(rec.overtime_add or 0.0),
+        "bonus_add": float(rec.bonus_add or 0.0),
+        "total_deductions": float(rec.total_deductions or 0.0),
+        "total_additions": float(rec.total_additions or 0.0),
+        "adjustments_total": float(rec.adjustments_total or 0.0),
+        "total": float(rec.total or 0.0),
+    }
 
+
+def _breakdown_from_payroll_record(rec: PayrollRecord) -> list:
+    if not rec or not rec.breakdown_json:
+        return []
+    try:
+        data = json.loads(rec.breakdown_json)
+        return data if isinstance(data, list) else []
+    except Exception:
+        return []
+
+
+def get_month_payroll_data(
+    db: Session,
+    emp: Employee,
+    year: int,
+    mon: int,
+    default_settings: DailySettings | None,
+    *,
+    prefer_batch: bool = True,
+    ):
+    """Single source of truth for monthly payroll across report/payroll/payslip pages."""
+    month_key = f"{year:04d}-{mon:02d}"
+    upto = today_tz() if (year == today_tz().year and mon == today_tz().month) else None
+
+    if prefer_batch:
+        batch = (
+            db.query(PayrollBatch)
+            .filter(PayrollBatch.month == month_key, PayrollBatch.status.in_(("APPROVED", "CLOSED")))
+            .first()
+        )
+        if batch:
+            rec = (
+                db.query(PayrollRecord)
+                .filter(PayrollRecord.batch_id == batch.id, PayrollRecord.employee_id == emp.id)
+                .first()
+            )
+            if rec:
+                return _summary_from_payroll_record(rec), _breakdown_from_payroll_record(rec), batch
+
+    summary, breakdown = compute_month(db, emp, year, mon, default_settings, upto=upto)
+    return summary, breakdown, None
 
 @app.get("/hr/payroll-batches", response_class=HTMLResponse)
 def hr_payroll_batches(request: Request, db: Session = Depends(get_db), month: str | None = None):
@@ -4281,9 +4339,8 @@ def hr_payroll(request: Request, db: Session = Depends(get_db), month: str | Non
         'grand_total': 0.0,
     }
     for e in employees:
-        upto = today_tz() if (year == today_tz().year and mon == today_tz().month) else None
-        summary, breakdown = compute_month(db, e, year, mon, default_settings, upto=upto)
-        rows.append({"emp": e, "summary": summary, "breakdown_json": json.dumps(breakdown, ensure_ascii=False, default=str)})        # accumulate totals
+        summary, breakdown, _batch = get_month_payroll_data(db, e, year, mon, default_settings)
+        rows.append({"emp": e, "summary": summary, "breakdown_json": json.dumps(breakdown, ensure_ascii=False, default=str)})
         try:
             totals['grand_total'] += float(summary.get('total') or 0)
         except Exception:
@@ -5453,10 +5510,9 @@ def hr_report(request: Request, db: Session = Depends(get_db), date_str: str | N
 
         # payroll summary
         default_settings = db.get(DailySettings, today_tz())
-        upto = today_tz() if (year == today_tz().year and mon == today_tz().month) else None
         summary = None
         if emp:
-            summary, _breakdown = compute_month(db, emp, year, mon, default_settings, upto=upto)
+            summary, _breakdown, _batch = get_month_payroll_data(db, emp, year, mon, default_settings)
 
         return templates.TemplateResponse(
             "hr_report.html",
@@ -5546,8 +5602,11 @@ def hr_report(request: Request, db: Session = Depends(get_db), date_str: str | N
             total_overtime += int(r.get("overtime") or 0)
             total_overtime_raw += int(r.get("raw_overtime") or 0)
         
-        summary, _breakdown = compute_month(db, e, year, mon, default_settings, upto=upto)
-
+        if e.id in rec_map:
+            summary = _summary_from_payroll_record(rec_map[e.id])
+        else:
+            summary, _breakdown, _batch = get_month_payroll_data(db, e, year, mon, default_settings, prefer_batch=False)
+        
         row = {
             "emp": e,
             "present_days": present_days,
