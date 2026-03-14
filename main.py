@@ -250,9 +250,7 @@ def startup_event():
         pass
 
 templates = Jinja2Templates(directory="templates")
-templates.env.globals["normalize_video_path"] = normalize_video_path
-templates.env.globals["video_url"] = video_url
-templates.env.globals["video_mime"] = video_mime
+
 # Static media (videos/photos)
 BASE_DIR = Path(__file__).resolve().parent
 MEDIA_DIR = BASE_DIR / "media"
@@ -291,7 +289,7 @@ def now_tz() -> datetime:
 
 def today_tz() -> date:
     return now_tz().date()
-def normalize_video_path(video_path: str | None) -> str:
+def normalize_video_path(video_path):
     """Normalize stored video path to a media-relative path.
 
     Accepts legacy forms like:
@@ -343,7 +341,9 @@ def video_mime(video_path: str | None) -> str:
         return 'video/webm'
     return ''
 
-
+templates.env.globals["normalize_video_path"] = normalize_video_path
+templates.env.globals["video_url"] = video_url
+templates.env.globals["video_mime"] = video_mime
 def _as_naive(dt: datetime | None) -> datetime | None:
     # خليه فقط يشيل tzinfo بدون أي تحويل ساعات
     if dt is None:
