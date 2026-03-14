@@ -402,14 +402,20 @@
     let _leafletMap = null;
     let _leafletMarker = null;
 
+    
     function _normalizeVideoPath(p){
      if(!p) return '';
-     p = String(p).trim();
-     p = p.replace(/\\/g, '/');
-     p = p.replace(/^\/+/, '');
-     if(p.startsWith('media/')) p = p.slice(6);
-     if(p.includes('/')) return p;
-     return 'videos/' + p;
+     p = String(p).trim().replace(/\\/g, '/');
+     if(!p) return '';
+     if(/^https?:\/\//i.test(p)) return p;
+     const mediaIdx = p.indexOf('/media/');
+     if(mediaIdx >= 0) p = p.slice(mediaIdx + 7);
+     p = p.replace(/^media\//, '').replace(/^\/+/, '');
+     if(!p) return '';
+     if(p.startsWith('videos/')) return p;
+     if(p.startsWith('/videos/')) return p.replace(/^\/+/, '');
+    if(!p.includes('/')) return 'videos/' + p;
+     return p;
      }
 
     function _guessMime(p){
@@ -457,7 +463,7 @@
       if(v){
         const mime = _guessMime(v);
         // Don't force wrong type (mp4 vs webm) — browsers can sniff if type omitted.
-        videoEl.innerHTML = `<source src="/media/${v}" ${mime ? `type="${mime}"` : ''}>`;
+        videoEl.innerHTML = `<source src="${/^https?:\/\//i.test(v) ? v : `/media/${v}`}" ${mime ? `type="${mime}"` : ''}>`;
         videoEl.load();
       } else {
         videoEl.removeAttribute('src');
@@ -803,21 +809,21 @@
                 </td>
                  <td>
   {% if s.in and s.in.video_path %}
-    {% set p = s.in.video_path %}
-    <a class="btn btn-sm btn-success" target="_blank"
-       href="/media/{{ p if p.startswith('videos/') else ('videos/' ~ (p|replace('media/',''))) }}">
-      IN
-    </a>
-  {% endif %}
+  {% set p = s.in.video_path %}
+  <a class="btn btn-sm btn-success" target="_blank"
+     href="{{ video_url(p) }}">
+    IN
+  </a>
+{% endif %}
 
-  {% if s.out and s.out.video_path %}
-    {% set p2 = s.out.video_path %}
-    <span class="mx-1">|</span>
-    <a class="btn btn-sm btn-danger" target="_blank"
-       href="/media/{{ p2 if p2.startswith('videos/') else ('videos/' ~ (p2|replace('media/',''))) }}">
-      OUT
-    </a>
-  {% endif %}
+{% if s.out and s.out.video_path %}
+  {% set p2 = s.out.video_path %}
+  <span class="mx-1">|</span>
+  <a class="btn btn-sm btn-danger" target="_blank"
+     href="{{ video_url(p2) }}">
+    OUT
+  </a>
+{% endif %}
 </td>
 
 
