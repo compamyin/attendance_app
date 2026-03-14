@@ -21,7 +21,7 @@
             </div>
           </div>
 
-          <div class="msg-wrap flex-grow-1 mb-3 p-2 rounded-4 bg-light" style="min-height: 420px; max-height: 420px; overflow:auto;">
+          <div class="msg-wrap flex-grow-1 mb-3 p-2 rounded-4 manager-msg-surface" style="min-height: 420px; max-height: 420px; overflow:auto;">
             {% for m in hr_messages %}
               <div class="msg-bubble {% if m.direction == 'HR_TO_MANAGER' %}them{% else %}me{% endif %}">
                 <div class="d-flex justify-content-between align-items-center gap-2">
@@ -78,8 +78,8 @@
             </form>
           </div>
 
-          <div class="border rounded-4 overflow-hidden mb-3">
-            <div class="list-group list-group-flush" style="max-height: 260px; overflow:auto;">
+          <div class="border rounded-4 overflow-hidden mb-3 manager-msg-surface">
+            <div class="list-group list-group-flush manager-msg-list" style="max-height: 260px; overflow:auto;">
               {% for row in employee_rows %}
                 <a href="/manager/messages?{% if q %}q={{ q | urlencode }}&{% endif %}emp_id={{ row.emp.id }}"
                    class="list-group-item list-group-item-action {% if selected_employee and selected_employee.id == row.emp.id %}active{% endif %}">
@@ -91,15 +91,14 @@
               {% endfor %}
             </div>
           </div>
-
-          <div class="border rounded-4 p-3 d-flex flex-column" style="min-height: 320px;">
+          <div class="border rounded-4 p-3 d-flex flex-column manager-chat-box" style="min-height: 320px;">
             {% if selected_employee %}
               <div class="mb-3 pb-2 border-bottom">
                 <div class="fw-bold">{{ selected_employee.full_name }}</div>
                 <div class="small text-muted">{{ selected_employee.employee_code }}</div>
               </div>
-
-              <div class="msg-wrap flex-grow-1 mb-3 bg-light rounded-4 p-2" style="max-height: 180px; overflow:auto;">
+            
+              <div class="msg-wrap flex-grow-1 mb-3 rounded-4 p-2 manager-msg-surface" style="max-height: 180px; overflow:auto;">
                 {% for m in employee_messages %}
                   <div class="msg-bubble me">
                     <div class="d-flex justify-content-between align-items-center">
@@ -128,4 +127,47 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+
+{% block extra_head %}
+<style>
+  .manager-msg-surface{
+    background: rgba(255,255,255,.04) !important;
+    border: 1px solid rgba(255,255,255,.14) !important;
+  }
+
+  .manager-msg-list .list-group-item{
+    background: rgba(255,255,255,.03) !important;
+    color: #f2f5ff !important;
+    border: 0 !important;
+    border-bottom: 1px solid rgba(255,255,255,.08) !important;
+  }
+
+  .manager-msg-list .list-group-item:hover{
+    background: rgba(77,163,255,.10) !important;
+    color: #f2f5ff !important;
+  }
+
+  .manager-msg-list .list-group-item.active{
+    background: rgba(77,163,255,.22) !important;
+    color: #f2f5ff !important;
+    border-color: rgba(77,163,255,.35) !important;
+  }
+
+  .manager-msg-list .list-group-item.active .text-muted,
+  .manager-msg-list .list-group-item.active .small{
+    color: rgba(242,245,255,.78) !important;
+  }
+
+  .manager-chat-box{
+    background: rgba(255,255,255,.03) !important;
+    border: 1px solid rgba(255,255,255,.12) !important;
+  }
+
+  .manager-chat-box .msg-wrap{
+    background: rgba(255,255,255,.02) !important;
+    border: 1px solid rgba(255,255,255,.08) !important;
+  }
+</style>
 {% endblock %}
