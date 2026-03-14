@@ -5595,51 +5595,49 @@ def hr_report(request: Request, db: Session = Depends(get_db), date_str: str | N
         rec_map = {r.employee_id: r for r in recs}
 
     for e in employees_all:
-        present_days = 0
-        absent_days = 0
         total_late = 0
         total_overtime = 0
         total_early_leave = 0
         late_days = 0
         total_overtime_raw = 0
-        total_early_leave_raw = 0 
+        total_early_leave_raw = 0
+           
         for i in range(days_in_month):
-            d = first + timedelta(days=i)
-            if upto and d > upto:
-                break
-            settings = get_or_none_daily_settings(db, d)
-            r = compute_day(db, e, d, settings)
-            if r["status"] in ("PRESENT", "INCOMPLETE"):
-                present_days += 1
-            elif r["status"] == "ABSENT":
-                absent_days += 1
-            
-            late_now = int(r.get("late") or 0)
-            if late_now > 0:
-                late_days += 1
-            total_late += late_now
-            total_early_leave += int(r.get("early_leave") or 0)
-            total_early_leave_raw += int(r.get("raw_early_leave") or 0)
-            total_overtime += int(r.get("overtime") or 0)
-            total_overtime_raw += int(r.get("raw_overtime") or 0)
-        
+           d = first + timedelta(days=i)
+           if upto and d > upto:
+               break
+           settings = get_or_none_daily_settings(db, d)
+           r = compute_day(db, e, d, settings)
+                
+           late_now = int(r.get("late") or 0)
+           if late_now > 0:
+               late_days += 1
+           total_late += late_now
+           total_early_leave += int(r.get("early_leave") or 0)
+           total_early_leave_raw += int(r.get("raw_early_leave") or 0)
+           total_overtime += int(r.get("overtime") or 0)
+           total_overtime_raw += int(r.get("raw_overtime") or 0)
+                 
         if e.id in rec_map:
             summary = _summary_from_payroll_record(rec_map[e.id])
         else:
             summary, _breakdown, _batch = get_month_payroll_data(db, e, year, mon, default_settings, prefer_batch=False)
-        
+             
+        present_days = int(summary.get("days_present") or 0)
+        absent_days = int(summary.get("days_absent") or 0)
+         
         row = {
-            "emp": e,
-            "present_days": present_days,
-            "absent_days": absent_days,
-            "late_minutes": total_late,
-            "early_leave_minutes": total_early_leave,
-            "overtime_minutes": total_overtime,
-            "summary": summary,
-            "late_days": late_days,
-            "early_leave_raw_minutes": total_early_leave_raw,
-            "overtime_raw_minutes": total_overtime_raw,
-        }
+          "emp": e,
+          "present_days": present_days,
+          "absent_days": absent_days,
+          "late_minutes": total_late,
+          "early_leave_minutes": total_early_leave,
+          "overtime_minutes": total_overtime,
+          "summary": summary,
+          "late_days": late_days,
+          "early_leave_raw_minutes": total_early_leave_raw,
+          "overtime_raw_minutes": total_overtime_raw,
+         }
         rows.append(row)
 
         # accumulate totals
