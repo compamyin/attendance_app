@@ -4761,7 +4761,7 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
     
     late_minutes = 0
     if late_anchor_in and sched_start_ts:
-    late_in_ts = _as_naive(late_anchor_in.server_timestamp)
+        late_in_ts = _as_naive(late_anchor_in.server_timestamp)
 
     if late_in_ts and late_in_ts > sched_start_ts:
         late_from_start = _ceil_minutes(int((late_in_ts - sched_start_ts).total_seconds()))
