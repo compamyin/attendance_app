@@ -4760,13 +4760,14 @@ def _compute_day_row_for_employee(db: Session, emp: Employee, d: date, settings:
     overtime_min = max(overtime_min, 0)
     
     late_minutes = 0
+    late_in_ts = None
     if late_anchor_in and sched_start_ts:
         late_in_ts = _as_naive(late_anchor_in.server_timestamp)
 
-    if late_in_ts and late_in_ts > sched_start_ts:
+    if late_in_ts and sched_start_ts and late_in_ts > sched_start_ts:
         late_from_start = _ceil_minutes(int((late_in_ts - sched_start_ts).total_seconds()))
         if late_from_start > grace:
-            late_minutes = int(late_from_start)
+           late_minutes = int(late_from_start)
    
 
     work_minutes = None
