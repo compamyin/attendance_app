@@ -203,7 +203,7 @@
                     </td>
                     <td>
                       {% if r.video_path %}
-                        <a class="btn btn-sm btn-outline-warning" target="_blank" href="/media/{{ r.video_path | replace('media/','') }}">فتح</a>
+                        <a class="btn btn-sm btn-outline-warning" target="_blank" href="{{ video_url(r.video_path) }}">فتح</a>
                       {% else %}
                         <span class="muted">-</span>
                       {% endif %}
