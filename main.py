@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 from fastapi import FastAPI, Request, Depends
 from fastapi import APIRouter
 from fastapi import File, UploadFile
-
+from sqlalchemy import func, or_
 
 from db import Base, engine, get_db
 from models import (
@@ -1497,12 +1497,18 @@ def manager_messages(
     employees_q = db.query(Employee).filter(Employee.is_active == True)
 
     q_clean = (q or "").strip()
+    q_clean = (q or "").strip()
     if q_clean:
-        like_q = f"%{q_clean}%"
-        employees_q = employees_q.filter(
-            (Employee.full_name.ilike(like_q)) |
-            (Employee.employee_code.ilike(like_q))
-        )
+       like_q = f"%{q_clean}%"
+       filters = [
+          Employee.full_name.ilike(like_q),
+          Employee.employee_code.ilike(like_q),
+       ]
+        
+       if q_clean.isdigit():
+          filters.append(Employee.id == int(q_clean))
+        
+       employees_q = employees_q.filter(or_(*filters))
 
     employees = employees_q.order_by(Employee.full_name.asc()).all()
 
