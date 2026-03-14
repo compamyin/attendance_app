@@ -315,7 +315,6 @@ def compute_early_leave_segments(
     - Final segment: last OUT -> scheduled end (with grace)
     """
     segs = []
-    if not work_end:
     if not sched_end_ts:
         return segs
 
