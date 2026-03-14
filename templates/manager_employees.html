@@ -28,11 +28,12 @@
               <th>غياب</th>
               <th>تأخير (دقيقة)</th>
               <th>OT (دقيقة)</th>
+              <th>التقرير</th>
             </tr>
           </thead>
           <tbody>
             {% for r in rows %}
-            <tr style="cursor:pointer" onclick="window.location.href='/manager/employees/{{ r.emp.id }}?month={{ month }}'">
+            <tr style="cursor:pointer" onclick="window.location.href='/manager/report?emp_id={{ r.emp.id }}&month={{ month }}'">
               <td>{{ r.emp.employee_code }}</td>
               <td class="text-truncate" style="max-width:320px">{{ r.emp.full_name }}</td>
               <td>{{ r.salary_monthly }}</td>
@@ -40,6 +41,9 @@
               <td>{{ r.absent_days }}</td>
               <td>{{ r.late_minutes }}</td>
               <td>{{ r.overtime_minutes }}</td>
+              <td>
+              <a class="btn btn-sm btn-outline-info" href="/manager/report?emp_id={{ r.emp.id }}&month={{ month }}" onclick="event.stopPropagation()">عرض التقرير</a>
+            </td>
             </tr>
             {% endfor %}
           </tbody>
