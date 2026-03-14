@@ -3962,6 +3962,22 @@ def _sync_batch_records(db: Session, batch: PayrollBatch, year: int, mon: int):
             locked=(batch.status == "CLOSED"),
         )
     db.commit()
+
+def _sync_approved_batch_for_month(db: Session, year: int, mon: int):
+    """Refresh APPROVED payroll snapshot after HR/report/payroll edits.
+    CLOSED batches stay frozen and are not changed.
+    """
+    month_key = f"{year:04d}-{mon:02d}"
+    batch = (
+        db.query(PayrollBatch)
+        .filter(PayrollBatch.month == month_key)
+        .first()
+    )
+    if not batch:
+        return
+    if batch.status != "APPROVED":
+        return
+    _sync_batch_records(db, batch, year, mon)
 def _summary_from_payroll_record(rec: PayrollRecord) -> dict:
     return {
         "salary_monthly": float(rec.salary_monthly or 0.0),
@@ -4386,7 +4402,11 @@ def hr_payroll_adjust(
     )
     db.add(pa)
     db.commit()
-
+    try:
+        y, m = month.strip().split("-")
+        _sync_approved_batch_for_month(db, int(y), int(m))
+    except Exception:
+        pass
     # redirect back (defaults to payroll page)
     if next_url and str(next_url).strip():
         return RedirectResponse(url=str(next_url).strip(), status_code=302)
@@ -5362,6 +5382,7 @@ def hr_attendance_decision(
         adj.note = (note or '').strip()[:255] or None
     db.add(adj)
     db.commit()
+    _sync_approved_batch_for_month(db, d.year, d.month)
     # keep old behavior if next_url not provided
     if next_url and next_url.startswith('/'):
         return RedirectResponse(url=next_url, status_code=302)
@@ -5987,10 +6008,11 @@ def hr_report_manual_save(
         old_note = (adj.note or "").strip()
         extra = f"تعديل يدوي من التقرير: {note_clean}"
         adj.note = (old_note + " | " + extra).strip(" |")[:255]
-
     adj.updated_by_user_id = getattr(u, "id", None)
     db.add(adj)
     db.commit()
+    _sync_approved_batch_for_month(db, d.year, d.month)
+
 
     return RedirectResponse(url=(next_url or f"/hr/report?emp_id={emp_id}&date_str={d.isoformat()}"), status_code=302)
 @app.get("/hr/review", response_class=HTMLResponse)
@@ -6235,12 +6257,12 @@ def hr_review_decide(
             seg.note = (note or None)
             seg.updated_by_user_id = u.id
             db.commit()
+            _sync_approved_batch_for_month(db, d.year, d.month)
 
         if back and str(back).startswith("/"):
             return RedirectResponse(url=str(back), status_code=302)
 
         return RedirectResponse(url=f"/hr/review?date_str={d.isoformat()}&kind=early_leave", status_code=302)
-
     adj = _get_or_create_adj(db, emp_id, d, u.id)
 
     note_clean = (note or "").strip()[:255]
@@ -6277,7 +6299,7 @@ def hr_review_decide(
                adj.compensate_early_leave = True
     db.add(adj)
     db.commit()
-
+    _sync_approved_batch_for_month(db, d.year, d.month)
     if back and str(back).startswith("/"):
         return RedirectResponse(url=str(back), status_code=302)
 
