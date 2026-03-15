@@ -253,7 +253,14 @@ templates = Jinja2Templates(directory="templates")
 
 # Static media (videos/photos)
 BASE_DIR = Path(__file__).resolve().parent
-MEDIA_DIR = BASE_DIR / "media"
+
+MEDIA_ROOT_ENV = os.getenv("MEDIA_ROOT", "").strip()
+
+if MEDIA_ROOT_ENV:
+    MEDIA_DIR = Path(MEDIA_ROOT_ENV)
+else:
+    MEDIA_DIR = BASE_DIR / "media"
+
 VIDEOS_DIR = MEDIA_DIR / "videos"
 PHOTOS_DIR = MEDIA_DIR / "photos"
 INVOICES_DIR = MEDIA_DIR / "invoices"
