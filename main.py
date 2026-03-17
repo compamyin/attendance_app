@@ -5473,12 +5473,53 @@ def hr_employee_delete(emp_id: int, request: Request, db: Session = Depends(get_
     if not emp:
         raise HTTPException(status_code=404, detail="Not found")
 
-    # Delete employee using raw SQL so ORM won't try to set employee_id = NULL
-    db.execute(text("DELETE FROM employees WHERE id = :eid"), {"eid": emp_id})
-    db.commit()
+    try:
+        # احذف كل البيانات التابعة للموظف أولاً حتى ما يصير FK violation
+
+        # 1) العناصر المرتبطة بفواتير الموظف
+        db.execute(text("""
+            DELETE FROM invoice_images
+            WHERE invoice_id IN (
+                SELECT id FROM invoices WHERE employee_id = :eid
+            )
+        """), {"eid": emp_id})
+
+        db.execute(text("""
+            DELETE FROM invoice_items
+            WHERE invoice_id IN (
+                SELECT id FROM invoices WHERE employee_id = :eid
+            )
+        """), {"eid": emp_id})
+
+        # 2) الردود التابعة لتذاكر الموظف
+        db.execute(text("""
+            DELETE FROM support_ticket_replies
+            WHERE ticket_id IN (
+                SELECT id FROM support_tickets WHERE employee_id = :eid
+            )
+        """), {"eid": emp_id})
+
+        # 3) الجداول المرتبطة مباشرة بالموظف
+        db.execute(text("DELETE FROM messages WHERE employee_id = :eid"), {"eid": emp_id})
+        db.execute(text("DELETE FROM employee_notes WHERE employee_id = :eid"), {"eid": emp_id})
+        db.execute(text("DELETE FROM payroll_records WHERE employee_id = :eid"), {"eid": emp_id})
+        db.execute(text("DELETE FROM payroll_adjustments WHERE employee_id = :eid"), {"eid": emp_id})
+        db.execute(text("DELETE FROM attendance_adjustments WHERE employee_id = :eid"), {"eid": emp_id})
+        db.execute(text("DELETE FROM attendance_early_leave_segments WHERE employee_id = :eid"), {"eid": emp_id})
+        db.execute(text("DELETE FROM work_documentations WHERE employee_id = :eid"), {"eid": emp_id})
+        db.execute(text("DELETE FROM attendance_logs WHERE employee_id = :eid"), {"eid": emp_id})
+        db.execute(text("DELETE FROM invoices WHERE employee_id = :eid"), {"eid": emp_id})
+        db.execute(text("DELETE FROM support_tickets WHERE employee_id = :eid"), {"eid": emp_id})
+
+        # 4) أخيراً احذف الموظف نفسه
+        db.execute(text("DELETE FROM employees WHERE id = :eid"), {"eid": emp_id})
+
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
 
     return RedirectResponse(url="/hr/employees", status_code=302)
-
 
 @app.get("/hr/log/{log_id}", response_class=HTMLResponse)
 def hr_log_detail(request: Request, log_id: int, db: Session = Depends(get_db)):
