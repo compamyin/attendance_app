@@ -6147,6 +6147,38 @@ def hr_report_manual_save(
 
 
     return RedirectResponse(url=(next_url or f"/hr/report?emp_id={emp_id}&date_str={d.isoformat()}"), status_code=302)
+
+@app.get("/hr/review/day", response_class=HTMLResponse)
+def hr_review_day_details(
+    request: Request,
+    emp_id: int,
+    date_str: str,
+    db: Session = Depends(get_db),
+):
+    try:
+        u = get_current_hr_user(request, db)
+    except HTTPException:
+        return RedirectResponse(url="/hr/login", status_code=302)
+
+    emp = db.get(Employee, emp_id)
+    if not emp:
+        raise HTTPException(status_code=404, detail="Employee not found")
+
+    d = date.fromisoformat(date_str)
+    settings = get_effective_daily_settings(db, d)
+    r = compute_day(db, emp, d, settings, write_db=False)
+
+    return templates.TemplateResponse(
+        "hr_review_day.html",
+        {
+            "request": request,
+            "nav": _hr_nav_counts(db),
+            "user": u,
+            "emp": emp,
+            "date_str": date_str,
+            "r": r,
+        },
+    )
 @app.get("/hr/review", response_class=HTMLResponse)
 def hr_review_page(
     request: Request,
