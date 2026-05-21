@@ -321,6 +321,10 @@
                         <input type="hidden" name="decision" value="REJECTED">
                         <button class="btn btn-outline-light btn-sm">رفض</button>
                       </form>
+                      <a class="btn btn-info btn-sm"
+                            href="/hr/review/day?emp_id={{ r.emp.id }}&date_str={{ r.date }}">
+                                      استفسار
+                      </a>
                     </td>
                   </tr>
                 {% endfor %}
