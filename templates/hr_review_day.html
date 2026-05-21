@@ -1,0 +1,86 @@
+{% extends "_modern_base.html" %}
+{% block title %}استفسار يوم الموظف{% endblock %}
+{% block brand_title %}HR{% endblock %}
+{% block brand_subtitle %}تفاصيل يوم الموظف{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+      <h4 class="mb-0">استفسار يوم الموظف</h4>
+      <div class="text-muted">{{ emp.full_name }} - {{ date_str }}</div>
+    </div>
+    <a href="/hr/review?date_str={{ date_str }}" class="btn btn-outline-light btn-sm">رجوع للمراجعات</a>
+  </div>
+
+  <div class="row g-3 mb-3">
+    <div class="col-6 col-md-3"><div class="card p-3"><div class="text-muted">أول دخول</div><b>{{ r.first_in.strftime("%H:%M:%S") if r.first_in else "-" }}</b></div></div>
+    <div class="col-6 col-md-3"><div class="card p-3"><div class="text-muted">آخر خروج</div><b>{{ r.last_out.strftime("%H:%M:%S") if r.last_out else "-" }}</b></div></div>
+    <div class="col-6 col-md-3"><div class="card p-3"><div class="text-muted">عدد الدخول</div><b>{{ r.in_count or 0 }}</b></div></div>
+    <div class="col-6 col-md-3"><div class="card p-3"><div class="text-muted">عدد الخروج</div><b>{{ r.out_count or 0 }}</b></div></div>
+
+    <div class="col-6 col-md-3"><div class="card p-3"><div class="text-muted">التأخير</div><b>{{ r.raw_late or 0 }} دقيقة</b></div></div>
+    <div class="col-6 col-md-3"><div class="card p-3"><div class="text-muted">مجموع المغادرات</div><b>{{ r.raw_early_leave or 0 }} دقيقة</b></div></div>
+    <div class="col-6 col-md-3"><div class="card p-3"><div class="text-muted">الإضافي الخام</div><b>{{ r.raw_overtime or 0 }} دقيقة</b></div></div>
+    <div class="col-6 col-md-3"><div class="card p-3"><div class="text-muted">الدوام الفعلي</div><b>{{ r.work_duration or "-" }}</b></div></div>
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <h6 class="fw-bold mb-3">حركات الدخول والخروج</h6>
+
+      <div class="table-responsive">
+        <table class="table table-sm table-dark table-striped align-middle">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>دخول</th>
+              <th>خروج</th>
+              <th>مدة الجلسة</th>
+              <th>فيديو الدخول</th>
+              <th>فيديو الخروج</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for s in r.sessions %}
+            <tr>
+              <td>{{ loop.index }}</td>
+              <td>{{ s.in.server_timestamp.strftime("%H:%M:%S") if s.in else "-" }}</td>
+              <td>{{ s.out.server_timestamp.strftime("%H:%M:%S") if s.out else "-" }}</td>
+              <td>
+                {% if s.duration_min is not none %}
+                  {{ s.duration_min }} دقيقة
+                {% else %}
+                  -
+                {% endif %}
+              </td>
+              <td>
+                {% if s.in and s.in.video_path %}
+                  <a class="btn btn-sm btn-outline-success" target="_blank" href="/hr/log/{{ s.in.id }}">IN</a>
+                {% else %}
+                  -
+                {% endif %}
+              </td>
+              <td>
+                {% if s.out and s.out.video_path %}
+                  <a class="btn btn-sm btn-outline-danger" target="_blank" href="/hr/log/{{ s.out.id }}">OUT</a>
+                {% else %}
+                  -
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+
+            {% if not r.sessions %}
+            <tr><td colspan="6" class="text-muted">لا يوجد حركات لهذا اليوم.</td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+{% endblock %}
