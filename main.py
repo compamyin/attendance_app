@@ -192,6 +192,19 @@ def ensure_schema():
                 conn.execute(text("UPDATE attendance_adjustments SET decision_early_leave='REJECTED' WHERE decision_early_leave='EXCUSED'"))
                 conn.execute(text("UPDATE attendance_adjustments SET decision_absence='REJECTED' WHERE decision_absence='EXCUSED'"))
                 conn.execute(text("UPDATE attendance_adjustments SET decision_overtime='REJECTED' WHERE decision_overtime='EXCUSED'")) 
+                emp_cols = _cols("employees")
+                if emp_cols and "pin_plain" not in emp_cols:
+                    conn.execute(text("ALTER TABLE employees ADD COLUMN pin_plain VARCHAR(50) NULL"))
+
+                user_cols = _cols("users")
+                if user_cols:
+                    if "password_plain" not in user_cols:
+                        conn.execute(text("ALTER TABLE users ADD COLUMN password_plain VARCHAR(100) NULL"))
+
+                    if "pin_plain" not in user_cols:
+                        conn.execute(text("ALTER TABLE users ADD COLUMN pin_plain VARCHAR(50) NULL"))
+
+            
             msg_cols = _cols("messages")
             if msg_cols:
                 if "manager_id" not in msg_cols:
@@ -2499,6 +2512,7 @@ def admin_create_employee(
         salary_monthly=float(salary_monthly) if salary_monthly not in (None, "") else None,
         allowed_ip=allowed_ip.strip() if allowed_ip else None,
         pin_hash=hash_pin(pin.strip()),
+        pin_plain=pin.strip(),
         is_active=True,
     )
     db.add(emp)
@@ -5419,6 +5433,7 @@ def hr_employee_reset_pin(
         return RedirectResponse(url=f"/hr/employees/{emp_id}?err=pin_mismatch", status_code=302)
 
     emp.pin_hash = hash_pin(p1)
+    emp.pin_plain = p1
     db.add(emp)
     db.commit()
     return RedirectResponse(url=f"/hr/employees/{emp_id}?ok=pin_updated", status_code=302)
