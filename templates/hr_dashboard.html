@@ -162,7 +162,6 @@
                   <th>الموظف</th>
                   <th>أول دخول</th>
                   <th>آخر خروج</th>
-                  <th>مدة الدوام</th>
                   <th>الموقع</th>
                   <th>الفيديو</th>
                   <th>توثيق العمل</th>
@@ -180,7 +179,7 @@
                         {% endif %}
                         <div>
                           <div style="font-weight:800;">
-                            <a href="/hr/report?emp_id={{ r.emp_id }}&date_str={{ today.strftime('%Y-%m-%d') }}" style="text-decoration:none;">
+                            <a href="/hr/report?emp_id={{ r.emp_id }}&month={{ today.strftime('%Y-%m') }}" style="text-decoration:none;">
                               {{ r.full_name }}
                             </a>
                           </div>
@@ -190,7 +189,6 @@
                     </td>
                     <td class="muted">{{ r.first_in or '-' }}</td>
                     <td class="muted">{{ r.last_out or '-' }}</td>
-                    <td class="muted">{{ r.work_duration or '-' }}</td>
                     <td>
                       {% if r.map_url %}
                         <a class="btn btn-sm btn-outline-info" target="_blank" href="{{ r.map_url }}">فتح</a>
