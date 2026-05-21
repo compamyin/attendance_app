@@ -239,6 +239,22 @@
               <div class="col-6 col-md-3"><div class="muted">إجمالي خصومات</div><div class="money">{{ '%.2f'|format(summary.total_deductions or 0) }}</div></div>
               <div class="col-6 col-md-3"><div class="muted">صافي التعديلات</div><div class="money">{{ '%.2f'|format(summary.adjustments_total or 0) }}</div></div>
               <div class="col-6 col-md-3"><div class="muted">الصافي النهائي</div><div class="money" style="font-weight:900;">{{ '%.2f'|format(summary.total or 0) }}</div></div>
+              <div class="col-6 col-md-3">
+                <div class="muted">عدد أيام الدوام</div>
+                <div style="font-weight:900;">{{ (summary.days_present or 0) + (summary.days_absent or 0) }}</div>
+              </div>
+              
+              <div class="col-6 col-md-3">
+                <div class="muted">عدد أيام الغياب</div>
+                <div style="font-weight:900;">{{ summary.days_absent or 0 }}</div>
+              </div>
+              
+              <div class="col-6 col-md-3">
+                <div class="muted">أيام إضافي موافق عليها</div>
+                <div style="font-weight:900;">
+                  {{ rows | selectattr("overtime", "gt", 0) | list | length }}
+                </div>
+              </div>
             </div>
           {% endif %}
         </div>
