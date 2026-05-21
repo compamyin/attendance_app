@@ -3885,6 +3885,19 @@ def _compute_payroll_for_month(
                         }
                     )
 
+        adj_note = ""
+        try:
+            adj_obj = row.get("adj")
+            adj_note = (getattr(adj_obj, "note", None) or "").strip() if adj_obj else ""
+        except Exception:
+            adj_note = ""
+        
+        if adj_note:
+            explain["items"].append({
+                "type": "hr_note",
+                "amount": 0.0,
+                "note": "سبب/ملاحظة HR: " + adj_note
+            })
         day_adjust = round(day_adjust, 3)
         explain["day_adjust"] = day_adjust
         total_adjust += day_adjust
@@ -3908,8 +3921,22 @@ def _compute_payroll_for_month(
     manual_ded = float(-sum((a.amount or 0) for a in adj_rows if (a.amount or 0) < 0))
     bonus_add_total = bonus_add + manual_add
 
+    
     if manual_total != 0:
         total_adjust += manual_total
+        
+        manual_items = []
+        for a in adj_rows:
+            amt = float(a.amount or 0)
+            reason = (a.reason or "").strip()
+            label = "زيادة يدوية" if amt > 0 else "خصم يدوي"
+            
+            manual_items.append({
+                "type": "manual_adjustment",
+                "amount": round(amt, 3),
+                "note": f"{label}: {reason}" if reason else label,
+            })
+                
         breakdown.append(
             {
                 "date": month_key,
@@ -3918,9 +3945,9 @@ def _compute_payroll_for_month(
                 "early_leave_minutes": 0,
                 "overtime_minutes": 0,
                 "base_daily": round(base_daily, 3),
-                "items": [{"type": "manual_adjustment", "amount": round(manual_total, 3), "note": "زيادات/خصومات (يدوي)"}],
+                "items": manual_items,
                 "day_adjust": round(manual_total, 3),
-            }
+                }
         )
     total_pay = round(salary_monthly + total_adjust, 3)
 
@@ -5245,7 +5272,7 @@ def compute_day(db: Session, emp: Employee, d: date, settings: DailySettings, *,
         ext_count = 0
     adj = row.get("adj")
     manual_day_mode = ((getattr(adj, "manual_day_mode", None) or "").strip().upper() if adj else "")
-
+    row["hr_note"] = (getattr(adj, "note", None) or "") if adj else ""
     if manual_day_mode == "PRESENT_TO_END":
         row["raw_status"] = "PRESENT"
         row["status"] = "PRESENT"
