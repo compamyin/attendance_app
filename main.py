@@ -49,7 +49,32 @@ from config import TIMEZONE_NAME
 Base.metadata.create_all(bind=engine)
 
 from sqlalchemy import text
- 
+
+with engine.begin() as conn:
+
+    try:
+        conn.execute(text("""
+            ALTER TABLE users
+            ADD COLUMN password_plain VARCHAR(100)
+        """))
+    except:
+        pass
+
+    try:
+        conn.execute(text("""
+            ALTER TABLE users
+            ADD COLUMN pin_plain VARCHAR(50)
+        """))
+    except:
+        pass
+
+    try:
+        conn.execute(text("""
+            ALTER TABLE employees
+            ADD COLUMN pin_plain VARCHAR(50)
+        """))
+    except:
+        pass 
 
 
 import urllib.request
