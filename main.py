@@ -4628,6 +4628,7 @@ def hr_new_employee(
         salary_monthly=float(salary_monthly) if salary_monthly not in (None, "") else None,
         allowed_ip=allowed_ip.strip() if allowed_ip else None,
         pin_hash=hash_pin(pin.strip()),
+        pin_plain=pin.strip(),
         is_active=True,
     )
     db.add(emp)
