@@ -2147,6 +2147,8 @@ def hr_create_manager(
         username=username,
         password_hash=hash_pin(password.strip()),
         pin_hash=hash_pin(pin.strip()),
+        password_plain=password.strip(),
+        pin_plain=pin.strip(),
         role="MANAGER",
         is_active=True,
     )
@@ -4690,8 +4692,9 @@ def hr_manager_update(
                 {"request": request, "user": u, "manager": manager, "nav": _hr_nav_counts(db), "error": "كلمة السر غير متطابقة."},
                 status_code=400,
             )
+            
         manager.password_hash = hash_pin(new_password.strip())
-
+        manager.password_plain = new_password.strip()
     if (new_pin or "").strip() or (confirm_pin or "").strip():
         if (new_pin or "").strip() != (confirm_pin or "").strip():
             return templates.TemplateResponse(
@@ -4700,6 +4703,7 @@ def hr_manager_update(
                 status_code=400,
             )
         manager.pin_hash = hash_pin(new_pin.strip())
+        manager.pin_plain = new_pin.strip()
 
     manager.username = username
     manager.is_active = bool(int(is_active))
