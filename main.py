@@ -84,8 +84,10 @@ from models import Base
 # IMPORTANT: app must be defined BEFORE any @app.* decorators below.
 Base.metadata.create_all(bind=engine)
 def cleanup_old_videos(db: Session, days: int = 7) -> int:
-    """Delete video files + clear video_path for logs older than `days` days."""
     cutoff = (now_tz() - timedelta(days=days)).replace(tzinfo=None)
+    deleted = 0
+
+    rows = []
 
     old_logs = (
         db.query(AttendanceLog)
@@ -94,33 +96,51 @@ def cleanup_old_videos(db: Session, days: int = 7) -> int:
             AttendanceLog.video_path != "",
             AttendanceLog.server_timestamp < cutoff,
         )
-        .limit(500)  # دفعات حتى ما يعمل ضغط
+        .limit(500)
         .all()
     )
+    rows.extend(old_logs)
 
-    deleted = 0
-    for log in old_logs:
+    old_work_docs = (
+        db.query(WorkDocumentation)
+        .filter(
+            WorkDocumentation.video_path.isnot(None),
+            WorkDocumentation.video_path != "",
+            WorkDocumentation.server_timestamp < cutoff,
+        )
+        .limit(500)
+        .all()
+    )
+    rows.extend(old_work_docs)
+
+    for row in rows:
         try:
-            vp = (log.video_path or "").lstrip("/")
-            # يتعامل مع paths مثل "media/videos/..." أو "videos/..."
+            vp = (row.video_path or "").strip().lstrip("/")
+
             if vp.startswith("media/"):
                 rel = vp.replace("media/", "", 1)
-                fpath = (MEDIA_DIR / rel).resolve()
+            elif vp.startswith("videos/"):
+                rel = vp
             else:
-                fpath = (BASE_DIR / vp).resolve()
+                rel = f"videos/{vp}"
+
+            fpath = (MEDIA_DIR / rel).resolve()
 
             if fpath.exists() and fpath.is_file():
-                fpath.unlink(missing_ok=True)
+                fpath.unlink()
         except Exception:
             pass
 
-        # أهم شيء: ما نخلي HR يشوفه بعد الأسبوع
-        log.video_path = None
+        row.video_path = None
         deleted += 1
 
     if deleted:
         db.commit()
+
     return deleted
+
+
+
 def reverse_geocode_nominatim(lat: float, lng: float) -> tuple[str | None, str | None]:
     """Return (area_name, region_name) using OpenStreetMap Nominatim reverse API.
     Best-effort; returns (None, None) on failure. Stores short strings.
@@ -5628,6 +5648,7 @@ def manager_log_detail(request: Request, log_id: int, db: Session = Depends(get_
     )
 @app.get("/hr/report", response_class=HTMLResponse)
 def hr_report(request: Request, db: Session = Depends(get_db), date_str: str | None = None, month: str | None = None, emp_id: str | None = None):
+    cleanup_old_videos(db, days=7)
     try:
         u = get_current_hr_user(request, db)
     except HTTPException:
