@@ -517,7 +517,20 @@
       list.innerHTML = '';
 
       if(!logs.length){
-        list.innerHTML = `<div class="muted">—</div>`;
+      if(!logs.length){
+        list.innerHTML = `<div class="muted">لا يوجد فيديو لهذا اليوم</div>`;
+
+        const videoEl = document.getElementById('logVideo');
+        const metaEl = document.getElementById('logMeta');
+        const openBtn = document.getElementById('openLogDetails');
+
+        videoEl.pause();
+        videoEl.removeAttribute('src');
+        videoEl.innerHTML = '';
+        videoEl.load();
+
+        metaEl.textContent = 'لا يوجد فيديو لهذا اليوم';
+        openBtn.href = '#';  
       } else {
         logs.forEach((lg, idx) => {
           const btn = document.createElement('button');
